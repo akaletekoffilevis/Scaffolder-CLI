@@ -40,3 +40,6 @@ Thumbs.db
 
 # Scaffolder
 *.bak
+
+# Docs site (separate repo: scaffold-docs)
+docs/

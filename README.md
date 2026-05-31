@@ -1,7 +1,7 @@
 # Scaffolder
 
 <p align="center">
-  <img src="docs/public/logo-horizontal.svg" alt="Scaffolder" width="500">
+  <img src="https://raw.githubusercontent.com/akaletekoffilevis/scaffold-docs/main/public/logo-horizontal.svg" alt="Scaffolder" width="500">
 </p>
 
 <p align="center">
@@ -11,8 +11,8 @@
 
 <p align="center">
   <picture>
-    <source media="(prefers-color-scheme: dark)" srcset="docs/public/logo-minimal.svg">
-    <img src="docs/public/logo-light.svg" width="80" alt="Logo">
+    <source media="(prefers-color-scheme: dark)" srcset="https://raw.githubusercontent.com/akaletekoffilevis/scaffold-docs/main/public/logo-minimal.svg">
+    <img src="https://raw.githubusercontent.com/akaletekoffilevis/scaffold-docs/main/public/logo-light.svg" width="80" alt="Logo">
   </picture>
 </p>
 
