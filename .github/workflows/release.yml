@@ -4,10 +4,13 @@ on:
   push:
     tags: ['v*']
 
+env:
+  DOTNET_NOLOGO: true
+
 jobs:
   build:
     strategy:
-      max-parallel: 2
+      max-parallel: 3
       matrix:
         rid:
           - linux-x64
@@ -45,36 +48,46 @@ jobs:
         with:
           dotnet-version: '9.0'
 
+      - name: Install cross-compilation tools (linux-arm64)
+        if: matrix.rid == 'linux-arm64'
+        run: sudo apt-get update && sudo apt-get install -y gcc-aarch64-linux-gnu
+
+      - name: Install musl tools (linux-musl-x64)
+        if: matrix.rid == 'linux-musl-x64'
+        run: sudo apt-get update && sudo apt-get install -y musl-tools
+
       - name: Restore
         run: dotnet restore -r ${{ matrix.rid }}
 
       - name: Publish AOT (${{ matrix.rid }})
         run: dotnet publish -c Release -r ${{ matrix.rid }} --self-contained --no-restore
 
-      - name: Package binary
+      - name: Package binary (Unix)
+        if: runner.os != 'Windows'
         shell: bash
         run: |
           cd bin/Release/net9.0/${{ matrix.rid }}/publish
-          if ls scaffold* 1> /dev/null 2>&1; then
-            tar -czf ../../../../../scaffold-${{ matrix.rid }}.tar.gz scaffold*
-            echo "Package size:"
-            ls -lh ../../../../../scaffold-${{ matrix.rid }}.tar.gz
-          else
-            echo "No scaffold binary found, trying directory listing"
-            ls -la
-            exit 1
-          fi
+          tar -czf ../../../../../scaffold-${{ matrix.rid }}.tar.gz scaffold
+
+      - name: Package binary (Windows)
+        if: runner.os == 'Windows'
+        shell: bash
+        run: |
+          cd bin/Release/net9.0/${{ matrix.rid }}/publish
+          tar -czf ../../../../../scaffold-${{ matrix.rid }}.tar.gz scaffold.exe
 
       - uses: actions/upload-artifact@v4
         with:
           name: scaffold-${{ matrix.rid }}
-          path: scaffold-${{ matrix.rid }}.tar.gz
+          path: Scaffolder/scaffold-${{ matrix.rid }}.tar.gz
 
   release:
+    if: always()
     needs: build
     runs-on: ubuntu-latest
     permissions:
       contents: write
+    continue-on-error: true
 
     steps:
       - uses: actions/download-artifact@v4
