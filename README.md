@@ -107,7 +107,7 @@ scaffold --help
 | **Mise à jour** | `update-deps`, `update` |
 | **Utilitaires** | `batch`, `config`, `bug`, `template from-dir`, `plugin`, `store`, `search`, `ai` |
 
-Documentation complète : [https://scaffolder.vercel.app](https://scaffolder.vercel.app)
+Documentation complète : [https://scaffolder-cli.vercel.app](https://scaffolder-cli.vercel.app)
 
 ---
 
@@ -169,7 +169,7 @@ Ou ouvrir une issue : [github.com/akaletekoffilevis/Scaffolder-CLI/issues](https
 ---
 
 <p align="center">
-  <a href="https://scaffolder.vercel.app">Documentation</a> &middot;
+  <a href="https://scaffolder-cli.vercel.app">Documentation</a> &middot;
   <a href="https://github.com/akaletekoffilevis/Scaffolder-CLI">GitHub</a><br>
   <sub>Construit avec .NET 9 et System.CommandLine</sub>
 </p>
