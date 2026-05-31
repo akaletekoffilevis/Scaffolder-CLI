@@ -52,9 +52,9 @@ Variante Apple Silicon : `osx-arm64`.
 ### Windows (PowerShell)
 
 ```powershell
-curl -L -o scaffold.zip https://github.com/akaletekoffilevis/Scaffolder-CLI/releases/download/v2.0.0/scaffold-win-x64.tar.gz
+curl -L -o scaffold.zip https://github.com/akaletekoffilevis/Scaffolder-CLI/releases/download/v2.0.0/scaffold-win-x64.zip
 tar -xzf scaffold.zip
-./scaffold.exe --help
+scaffold --help
 ```
 
 ### Homebrew
@@ -107,7 +107,7 @@ scaffold --help
 | **Mise à jour** | `update-deps`, `update` |
 | **Utilitaires** | `batch`, `config`, `bug`, `template from-dir`, `plugin`, `store`, `search`, `ai` |
 
-Documentation complète : [https://scaffolder.vercel.app](https://scaffolder.vercel.app)
+Documentation complète : [https://scaffold-docs.vercel.app](https://scaffold-docs.vercel.app)
 
 ---
 
@@ -154,7 +154,7 @@ dotnet test
 - **Langage :** C# (.NET 9)
 - **Framework CLI :** `System.CommandLine`
 - **Compilation :** AOT (NativeAOT) — binaire unique sans runtime
-- **CI :** GitHub Actions — build automatique pour 8 plateformes sur tag git
+- **CI :** GitHub Actions — build automatique pour 7 plateformes sur tag git
 
 ---
 
@@ -169,7 +169,7 @@ Ou ouvrir une issue : [github.com/akaletekoffilevis/Scaffolder-CLI/issues](https
 ---
 
 <p align="center">
-  <a href="https://scaffolder.vercel.app">Site web</a> &middot;
+  <a href="https://scaffold-docs.vercel.app">Documentation</a> &middot;
   <a href="https://github.com/akaletekoffilevis/Scaffolder-CLI">GitHub</a><br>
   <sub>Construit avec .NET 9 et System.CommandLine</sub>
 </p>
