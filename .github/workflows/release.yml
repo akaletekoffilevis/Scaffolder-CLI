@@ -7,6 +7,7 @@ on:
 jobs:
   build:
     strategy:
+      max-parallel: 2
       matrix:
         rid:
           - linux-x64
@@ -14,7 +15,6 @@ jobs:
           - linux-arm64
           - win-x64
           - win-x86
-          - win-arm64
           - osx-x64
           - osx-arm64
         include:
@@ -27,8 +27,6 @@ jobs:
           - rid: win-x64
             os: windows-latest
           - rid: win-x86
-            os: windows-latest
-          - rid: win-arm64
             os: windows-latest
           - rid: osx-x64
             os: macos-latest
@@ -47,17 +45,25 @@ jobs:
         with:
           dotnet-version: '9.0'
 
+      - name: Restore
+        run: dotnet restore -r ${{ matrix.rid }}
+
       - name: Publish AOT (${{ matrix.rid }})
-        run: dotnet publish -c Release -r ${{ matrix.rid }} --self-contained
+        run: dotnet publish -c Release -r ${{ matrix.rid }} --self-contained --no-restore
 
       - name: Package binary
         shell: bash
         run: |
           cd bin/Release/net9.0/${{ matrix.rid }}/publish
-          tar -czf ../../../../../scaffold-${{ matrix.rid }}.tar.gz scaffold*
-          cd ../../../../..
-          echo "Package size:"
-          ls -lh scaffold-${{ matrix.rid }}.tar.gz
+          if ls scaffold* 1> /dev/null 2>&1; then
+            tar -czf ../../../../../scaffold-${{ matrix.rid }}.tar.gz scaffold*
+            echo "Package size:"
+            ls -lh ../../../../../scaffold-${{ matrix.rid }}.tar.gz
+          else
+            echo "No scaffold binary found, trying directory listing"
+            ls -la
+            exit 1
+          fi
 
       - uses: actions/upload-artifact@v4
         with:
