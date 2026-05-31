@@ -1,0 +1,43 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" width="512" height="512">
+  <defs>
+    <linearGradient id="bgGrad" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" style="stop-color:#ffffff"/>
+      <stop offset="100%" style="stop-color:#f0f2f5"/>
+    </linearGradient>
+    <linearGradient id="sGrad" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" style="stop-color:#1a73e8"/>
+      <stop offset="100%" style="stop-color:#0d47a1"/>
+    </linearGradient>
+    <linearGradient id="barGrad" x1="0%" y1="0%" x2="0%" y2="100%">
+      <stop offset="0%" style="stop-color:#1a73e8;stop-opacity:0.3"/>
+      <stop offset="100%" style="stop-color:#0d47a1;stop-opacity:0.1"/>
+    </linearGradient>
+    <filter id="shadow">
+      <feDropShadow dx="0" dy="2" stdDeviation="6" flood-color="#000" flood-opacity="0.08"/>
+    </filter>
+  </defs>
+
+  <rect x="16" y="16" width="480" height="480" rx="100" ry="100" fill="url(#bgGrad)" filter="url(#shadow)"/>
+
+  <!-- Scaffold -->
+  <line x1="160" y1="130" x2="160" y2="400" stroke="url(#barGrad)" stroke-width="10" stroke-linecap="round"/>
+  <line x1="256" y1="130" x2="256" y2="400" stroke="url(#barGrad)" stroke-width="6" stroke-linecap="round"/>
+  <line x1="352" y1="130" x2="352" y2="400" stroke="url(#barGrad)" stroke-width="10" stroke-linecap="round"/>
+
+  <line x1="160" y1="180" x2="352" y2="180" stroke="#1a73e8" stroke-width="4" stroke-linecap="round" opacity="0.3"/>
+  <line x1="160" y1="265" x2="352" y2="265" stroke="#1a73e8" stroke-width="4" stroke-linecap="round" opacity="0.3"/>
+  <line x1="160" y1="350" x2="352" y2="350" stroke="#1a73e8" stroke-width="4" stroke-linecap="round" opacity="0.3"/>
+
+  <line x1="160" y1="180" x2="256" y2="265" stroke="#0d47a1" stroke-width="3" stroke-linecap="round" opacity="0.25"/>
+  <line x1="256" y1="180" x2="160" y2="265" stroke="#0d47a1" stroke-width="3" stroke-linecap="round" opacity="0.25"/>
+  <line x1="256" y1="265" x2="352" y2="350" stroke="#0d47a1" stroke-width="3" stroke-linecap="round" opacity="0.25"/>
+  <line x1="352" y1="265" x2="256" y2="350" stroke="#0d47a1" stroke-width="3" stroke-linecap="round" opacity="0.25"/>
+
+  <!-- S -->
+  <text x="256" y="295" font-family="system-ui, -apple-system, sans-serif" font-size="170" font-weight="900" fill="url(#sGrad)" text-anchor="middle" dominant-baseline="central">S</text>
+
+  <!-- Cursor -->
+  <rect x="318" y="205" width="6" height="36" rx="3" fill="#1a73e8" opacity="0.6">
+    <animate attributeName="opacity" values="0.6;0.1;0.6" dur="1.2s" repeatCount="indefinite"/>
+  </rect>
+</svg>
