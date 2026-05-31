@@ -10,7 +10,8 @@ env:
 jobs:
   build:
     strategy:
-      max-parallel: 3
+      fail-fast: false
+      max-parallel: 4
       matrix:
         rid:
           - linux-x64
@@ -50,7 +51,7 @@ jobs:
 
       - name: Install cross-compilation tools (linux-arm64)
         if: matrix.rid == 'linux-arm64'
-        run: sudo apt-get update && sudo apt-get install -y gcc-aarch64-linux-gnu
+        run: sudo apt-get update && sudo apt-get install -y gcc-aarch64-linux-gnu binutils-aarch64-linux-gnu
 
       - name: Install musl tools (linux-musl-x64)
         if: matrix.rid == 'linux-musl-x64'
@@ -60,7 +61,7 @@ jobs:
         run: dotnet restore -r ${{ matrix.rid }}
 
       - name: Publish AOT (${{ matrix.rid }})
-        run: dotnet publish -c Release -r ${{ matrix.rid }} --self-contained --no-restore
+        run: dotnet publish -c Release -r ${{ matrix.rid }} --self-contained --no-restore /p:StripSymbols=false
 
       - name: Package binary (Unix)
         if: runner.os != 'Windows'
@@ -68,6 +69,7 @@ jobs:
         run: |
           cd bin/Release/net9.0/${{ matrix.rid }}/publish
           tar -czf ../../../../../scaffold-${{ matrix.rid }}.tar.gz scaffold
+          ls -lh ../../../../../scaffold-${{ matrix.rid }}.tar.gz
 
       - name: Package binary (Windows)
         if: runner.os == 'Windows'
@@ -75,6 +77,7 @@ jobs:
         run: |
           cd bin/Release/net9.0/${{ matrix.rid }}/publish
           tar -czf ../../../../../scaffold-${{ matrix.rid }}.tar.gz scaffold.exe
+          ls -lh ../../../../../scaffold-${{ matrix.rid }}.tar.gz
 
       - uses: actions/upload-artifact@v4
         with:
@@ -87,7 +90,6 @@ jobs:
     runs-on: ubuntu-latest
     permissions:
       contents: write
-    continue-on-error: true
 
     steps:
       - uses: actions/download-artifact@v4
