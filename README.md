@@ -1,8 +1,19 @@
 # Scaffolder
 
 <p align="center">
+  <img src="docs/public/logo-horizontal.svg" alt="Scaffolder" width="500">
+</p>
+
+<p align="center">
   <b>CLI universel pour générer des projets dans tous les langages</b><br>
   40+ commandes · 12 MB AOT · Multi-plateforme · IA intégrée
+</p>
+
+<p align="center">
+  <picture>
+    <source media="(prefers-color-scheme: dark)" srcset="docs/public/logo-minimal.svg">
+    <img src="docs/public/logo-light.svg" width="80" alt="Logo">
+  </picture>
 </p>
 
 <p align="center">
