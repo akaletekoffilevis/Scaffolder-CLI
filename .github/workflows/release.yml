@@ -1,0 +1,82 @@
+name: Build and Release
+
+on:
+  push:
+    tags: ['v*']
+
+jobs:
+  build:
+    strategy:
+      matrix:
+        rid:
+          - linux-x64
+          - linux-musl-x64
+          - linux-arm64
+          - win-x64
+          - win-x86
+          - win-arm64
+          - osx-x64
+          - osx-arm64
+        include:
+          - rid: linux-x64
+            os: ubuntu-latest
+          - rid: linux-musl-x64
+            os: ubuntu-latest
+          - rid: linux-arm64
+            os: ubuntu-latest
+          - rid: win-x64
+            os: windows-latest
+          - rid: win-x86
+            os: windows-latest
+          - rid: win-arm64
+            os: windows-latest
+          - rid: osx-x64
+            os: macos-latest
+          - rid: osx-arm64
+            os: macos-latest
+
+    runs-on: ${{ matrix.os }}
+    defaults:
+      run:
+        working-directory: Scaffolder
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: '9.0'
+
+      - name: Publish AOT (${{ matrix.rid }})
+        run: dotnet publish -c Release -r ${{ matrix.rid }} --self-contained
+
+      - name: Package binary
+        shell: bash
+        run: |
+          cd bin/Release/net9.0/${{ matrix.rid }}/publish
+          tar -czf ../../../../../scaffold-${{ matrix.rid }}.tar.gz scaffold*
+          cd ../../../../..
+          echo "Package size:"
+          ls -lh scaffold-${{ matrix.rid }}.tar.gz
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: scaffold-${{ matrix.rid }}
+          path: scaffold-${{ matrix.rid }}.tar.gz
+
+  release:
+    needs: build
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+
+    steps:
+      - uses: actions/download-artifact@v4
+        with:
+          path: artifacts
+
+      - name: Create Release
+        uses: softprops/action-gh-release@v2
+        with:
+          files: artifacts/**/*.tar.gz
+          generate_release_notes: true
