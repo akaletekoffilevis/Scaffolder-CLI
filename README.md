@@ -52,8 +52,8 @@ Variante Apple Silicon : `osx-arm64`.
 ### Windows (PowerShell)
 
 ```powershell
-curl -L -o scaffold.zip https://github.com/akaletekoffilevis/Scaffolder-CLI/releases/download/v2.0.0/scaffold-win-x64.zip
-tar -xzf scaffold.zip
+curl -L -o scaffold.tar.gz https://github.com/akaletekoffilevis/Scaffolder-CLI/releases/download/v2.0.0/scaffold-win-x64.tar.gz
+tar -xzf scaffold.tar.gz
 scaffold --help
 ```
 
