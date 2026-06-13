@@ -28,7 +28,7 @@ public class BugCommand : Command
             $"OS: {RuntimeInformation.OSDescription}\n" +
             $"Architecture: {RuntimeInformation.OSArchitecture}\n" +
             $".NET: {RuntimeInformation.FrameworkDescription}\n" +
-            $"Version: 2.0.0\n");
+            $"Version: 2.1.0\n");
 
         var mailto = $"mailto:{email}?subject={subject}&body={body}";
 

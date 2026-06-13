@@ -19,10 +19,11 @@ public static class UpdateService
                 var v = Assembly.GetExecutingAssembly()
                     .GetCustomAttribute<AssemblyInformationalVersionAttribute>()?.InformationalVersion
                     ?? Assembly.GetExecutingAssembly().GetName().Version?.ToString()
-                    ?? "2.0.0";
-                return v.TrimStart('v');
+                    ?? "2.1.0";
+                return v;
+
             }
-            catch { return "2.0.0"; }
+            catch { return "2.1.0"; }
         }
     }
 
