@@ -1,3 +1,5 @@
+using Spectre.Console;
+
 namespace Scaffolder.Services;
 
 public static class ConsoleService
@@ -11,7 +13,7 @@ public static class ConsoleService
     public static void Debug(string text)
     {
         if (Verbose)
-            WriteLine("  🔍 " + text, ConsoleColor.DarkGray);
+            AnsiConsole.MarkupLine("[dim]  \U0001f50d {0}[/]", Escape(text));
     }
 
     public static void Write(string text, ConsoleColor? color = null)
@@ -36,36 +38,34 @@ public static class ConsoleService
 
     public static void Success(string text)
     {
-        WriteLine(" ✅ " + text, ConsoleColor.Green);
+        AnsiConsole.MarkupLine("[green]  \u2705 {0}[/]", Escape(text));
     }
 
     public static void Error(string text)
     {
-        WriteLine(" ❌ " + text, ConsoleColor.Red);
+        AnsiConsole.MarkupLine("[red]  \u274c {0}[/]", Escape(text));
     }
 
     public static void Warning(string text)
     {
-        WriteLine(" ⚠️  " + text, ConsoleColor.Yellow);
+        AnsiConsole.MarkupLine("[yellow]  \u26a0\ufe0f  {0}[/]", Escape(text));
     }
 
     public static void Info(string text)
     {
-        WriteLine(" ℹ️  " + text, ConsoleColor.Cyan);
+        AnsiConsole.MarkupLine("[cyan]  \u2139\ufe0f  {0}[/]", Escape(text));
     }
 
     public static void Highlight(string text)
     {
-        Write(text, ConsoleColor.Magenta);
+        AnsiConsole.Markup("[magenta]{0}[/]", Escape(text));
     }
 
     public static void ShowLogo()
     {
-        WriteLine(@"
-   ╔══════════════════════════════════════════╗
-   ║        🏗️  S C A F F O L D E R          ║
-   ║    CLI universel pour générer des projets ║
-   ╚══════════════════════════════════════════╝", ConsoleColor.Cyan);
+        AnsiConsole.Write(new FigletText("Scaffolder").Centered().Color(Spectre.Console.Color.Blue));
+        AnsiConsole.MarkupLine("[cyan]  CLI universel pour generer des projets[/]");
+        AnsiConsole.MarkupLine("[cyan]  github.com/anomalyco/scaffolder[/]");
     }
 
     public static void CheckFirstRun()
@@ -73,15 +73,15 @@ public static class ConsoleService
         if (File.Exists(ConfigFile)) return;
 
         ShowLogo();
-        WriteLine();
-        WriteLine("👋  Bienvenue dans Scaffolder !", ConsoleColor.Green);
-        WriteLine();
-        Info("Je vais t'aider à créer ton premier projet en 30 secondes.");
+        AnsiConsole.WriteLine();
+        AnsiConsole.MarkupLine("[green]\U0001f44b  Bienvenue dans Scaffolder ![/]");
+        AnsiConsole.WriteLine();
+        Info("Je vais t'aider a creer ton premier projet en 30 secondes.");
         Info("Scaffolder fonctionne avec tous les langages : C#, Python, JS, Rust, Go...");
-        WriteLine();
-        WriteLine("📖  Tape `scaffold --help` pour voir toutes les commandes.", ConsoleColor.Yellow);
-        WriteLine("🚀  Tape `scaffold new` pour créer ton premier projet.", ConsoleColor.Green);
-        WriteLine();
+        AnsiConsole.WriteLine();
+        AnsiConsole.MarkupLine("[yellow]\U0001f4d6  Tape `scaffold --help` pour voir toutes les commandes.[/]");
+        AnsiConsole.MarkupLine("[green]\U0001f680  Tape `scaffold new` pour creer ton premier projet.[/]");
+        AnsiConsole.WriteLine();
 
         Directory.CreateDirectory(ConfigDir);
         File.WriteAllText(ConfigFile, """
@@ -106,17 +106,7 @@ public static class ConsoleService
             return defaultValue;
         }
 
-        Write(question + " ", ConsoleColor.Cyan);
-        try
-        {
-            var input = Console.ReadLine() ?? "";
-            return string.IsNullOrWhiteSpace(input) ? defaultValue : input.Trim();
-        }
-        catch (InvalidOperationException)
-        {
-            WriteLine($"  > {defaultValue}", ConsoleColor.Green);
-            return defaultValue;
-        }
+        return AnsiConsole.Ask<string>(question, defaultValue);
     }
 
     public static string Select(string question, string[] options)
@@ -140,83 +130,30 @@ public static class ConsoleService
             return options[0];
         }
 
-        var selected = 0;
-        ConsoleKey key;
-
-        WriteLine(question, ConsoleColor.Cyan);
-
-        var top = Console.CursorTop;
-        var left = Console.CursorLeft;
-
-        for (int i = 0; i < options.Length; i++)
-        {
-            Console.SetCursorPosition(left, top + i);
-            var prefix = i == selected ? " ▶" : "  ";
-            WriteLine($" {prefix} {options[i]}", i == selected ? ConsoleColor.Green : ConsoleColor.Gray);
-        }
-
-        try
-        {
-            do
-            {
-                key = Console.ReadKey(true).Key;
-
-                var prevSelected = selected;
-
-                switch (key)
-                {
-                    case ConsoleKey.UpArrow:
-                        selected = Math.Max(0, selected - 1);
-                        break;
-                    case ConsoleKey.DownArrow:
-                        selected = Math.Min(options.Length - 1, selected + 1);
-                        break;
-                    case ConsoleKey.Enter:
-                        Console.SetCursorPosition(left, top + options.Length);
-                        return options[selected];
-                }
-
-                if (prevSelected != selected)
-                {
-                    Console.SetCursorPosition(left, top + prevSelected);
-                    WriteLine($"    {options[prevSelected]}", ConsoleColor.Gray);
-                    Console.SetCursorPosition(left, top + selected);
-                    WriteLine($"  ▶ {options[selected]}", ConsoleColor.Green);
-                }
-            } while (true);
-        }
-        catch (InvalidOperationException)
-        {
-            WriteLine($"  > {options[0]}", ConsoleColor.Green);
-            return options[0];
-        }
+        return AnsiConsole.Prompt(
+            new SelectionPrompt<string>()
+                .Title(question)
+                .PageSize(15)
+                .HighlightStyle(new Style(foreground: Spectre.Console.Color.Blue, decoration: Decoration.Bold))
+                .AddChoices(options));
     }
 
     public static void WriteCmdLine(string text, ConsoleColor? color = null)
     {
-        WriteLine($"    $ {text}", color ?? ConsoleColor.DarkGray);
+        AnsiConsole.MarkupLine("[dim]    $ {0}[/]", Escape(text));
     }
 
     public static async Task ShowSpinner(string message, Func<Task> action)
     {
-        var frames = new[] { '⠋', '⠙', '⠹', '⠸', '⠼', '⠴', '⠦', '⠧', '⠇', '⠏' };
-        var index = 0;
-        var top = Console.CursorTop;
-        var left = Console.CursorLeft;
+        await AnsiConsole.Status()
+            .StartAsync(message, async _ =>
+            {
+                await action();
+            });
+    }
 
-        var task = action();
-
-        while (!task.IsCompleted)
-        {
-            Console.SetCursorPosition(left, top);
-            Write($" {frames[index % frames.Length]} {message}...  ", ConsoleColor.Cyan);
-            index++;
-            await Task.Delay(80);
-        }
-
-        await task;
-
-        Console.SetCursorPosition(left, top);
-        WriteLine($" ✅ {message} — terminé", ConsoleColor.Green);
+    private static string Escape(string text)
+    {
+        return text?.Replace("[", "[[").Replace("]", "]]") ?? "";
     }
 }
