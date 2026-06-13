@@ -65,7 +65,7 @@ public static class ConsoleService
     {
         AnsiConsole.Write(new FigletText("Scaffolder").Centered().Color(Spectre.Console.Color.Blue));
         AnsiConsole.MarkupLine("[cyan]  CLI universel pour generer des projets[/]");
-        AnsiConsole.MarkupLine("[cyan]  github.com/anomalyco/scaffolder[/]");
+        AnsiConsole.MarkupLine("[cyan]  github.com/akaletekoffilevis/Scaffolder-CLI[/]");
     }
 
     public static void CheckFirstRun()
@@ -93,7 +93,7 @@ public static class ConsoleService
         """);
     }
 
-    public static string Prompt(string question, string defaultValue = "")
+    public static string Prompt(string question, string defaultValue = "", Func<string, bool>? validate = null, string? errorMsg = null)
     {
         if (Console.IsInputRedirected)
         {
@@ -106,7 +106,13 @@ public static class ConsoleService
             return defaultValue;
         }
 
-        return AnsiConsole.Ask<string>(question, defaultValue);
+        while (true)
+        {
+            var result = AnsiConsole.Ask<string>(question, defaultValue);
+            if (validate == null || validate(result))
+                return result;
+            AnsiConsole.MarkupLine($"[red]  \u274c {Escape(errorMsg ?? "Valeur invalide.")}[/]");
+        }
     }
 
     public static string Select(string question, string[] options)
@@ -134,13 +140,31 @@ public static class ConsoleService
             new SelectionPrompt<string>()
                 .Title(question)
                 .PageSize(15)
-                .HighlightStyle(new Style(foreground: Spectre.Console.Color.Blue, decoration: Decoration.Bold))
+                .HighlightStyle(new Style(foreground: Spectre.Console.Color.Cyan1, decoration: Decoration.Bold))
                 .AddChoices(options));
     }
 
-    public static void WriteCmdLine(string text, ConsoleColor? color = null)
+    public static bool Confirm(string question, bool defaultValue = true)
     {
-        AnsiConsole.MarkupLine("[dim]    $ {0}[/]", Escape(text));
+        if (Console.IsInputRedirected)
+            return defaultValue;
+
+        return AnsiConsole.Confirm(question, defaultValue);
+    }
+
+    public static void StepHeader(int current, int total, string title)
+    {
+        AnsiConsole.MarkupLine($"\n[bold cyan][{current}/{total}][/] [white]{Escape(title)}[/]");
+    }
+
+    public static void KeyboardHint()
+    {
+        AnsiConsole.MarkupLine("[gray]  \u2328 Utilise les fleches (↑ ↓) et Entree pour choisir. Tape pour chercher.[/]");
+    }
+
+    public static void SummaryLine(string label, string value)
+    {
+        AnsiConsole.MarkupLine($"  [cyan]{Escape(label)}:[/] [white]{Escape(value)}[/]");
     }
 
     public static async Task ShowSpinner(string message, Func<Task> action)
@@ -150,6 +174,31 @@ public static class ConsoleService
             {
                 await action();
             });
+    }
+
+    public static void MarkupLine(string markup)
+    {
+        AnsiConsole.MarkupLine(markup);
+    }
+
+    public static void WriteLine()
+    {
+        AnsiConsole.WriteLine();
+    }
+
+    public static void WriteCmdLine(string text, ConsoleColor? color = null)
+    {
+        if (color.HasValue)
+        {
+            var prev = Console.ForegroundColor;
+            Console.ForegroundColor = color.Value;
+            Console.WriteLine("  " + text);
+            Console.ForegroundColor = prev;
+        }
+        else
+        {
+            Console.WriteLine("  " + text);
+        }
     }
 
     private static string Escape(string text)

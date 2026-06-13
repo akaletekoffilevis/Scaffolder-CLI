@@ -1,5 +1,6 @@
 using System.CommandLine;
 using System.Diagnostics;
+using System.Threading.Tasks;
 using Scaffolder.Adapters;
 using Scaffolder.Services;
 
@@ -91,7 +92,7 @@ public class NewCommand : Command
         Add(_verboseOpt);
         Add(_favOpt);
 
-        SetAction(HandleNew);
+        this.SetAction((ParseResult pr) => HandleNew(pr));
     }
 
     private int HandleNew(ParseResult pr)
@@ -103,81 +104,262 @@ public class NewCommand : Command
         var fav = pr.GetValue(_favOpt);
 
         ConsoleService.Verbose = verbose;
+        var hasTemplate = !string.IsNullOrWhiteSpace(pr.GetValue(_templateOpt));
+        var hasFav = !string.IsNullOrWhiteSpace(fav);
+        var isInteractive = !hasTemplate && !hasFav;
 
-        var isInteractive = string.IsNullOrWhiteSpace(pr.GetValue(_templateOpt))
-                            && string.IsNullOrWhiteSpace(fav);
-
-        if (!silent && !isInteractive)
+        if (!silent)
         {
             ConsoleService.ShowLogo();
-            Console.WriteLine();
+            ConsoleService.WriteLine();
         }
 
-        var template = pr.GetValue(_templateOpt);
-        if (!string.IsNullOrWhiteSpace(fav))
+        if (hasFav)
         {
-            template = fav;
+            fav = GetFavTemplate();
             ConsoleService.Debug($"Template favori : {fav}");
         }
 
-        if (string.IsNullOrWhiteSpace(template))
-        {
-            template = ConsoleService.Select(
-                "  Choisis un template :",
-                GetTemplateOptions()
-            );
-            template = template.Split(" \u2014 ")[0];
-        }
-
+        var template = pr.GetValue(_templateOpt) ?? fav;
         var name = pr.GetValue(_nameOpt);
-        if (string.IsNullOrWhiteSpace(name))
+        var language = pr.GetValue(_languageOpt);
+        var outputDir = pr.GetValue(_outputOpt)?.FullName;
+
+        if (isInteractive)
         {
-            name = ConsoleService.Prompt("  Nom du projet :", "mon-projet");
+            (name, template, language) = RunInteractiveWizard();
+            outputDir ??= Path.Combine(Directory.GetCurrentDirectory(), name);
+        }
+        else
+        {
+            template ??= "hello";
+            name ??= "mon-projet";
+            outputDir ??= Path.Combine(Directory.GetCurrentDirectory(), name);
         }
 
-        var outputDir = pr.GetValue(_outputOpt)?.FullName
-            ?? Path.Combine(Directory.GetCurrentDirectory(), name);
-
-        var language = pr.GetValue(_languageOpt);
-
-        if (!silent)
-            Console.WriteLine();
+        if (!silent) ConsoleService.WriteLine();
 
         if (dryRun)
         {
-            ConsoleService.Info("PREVISUALISATION (--dry-run) :");
-            ConsoleService.Info($"  Template : {template}");
-            ConsoleService.Info($"  Nom : {name}");
-            ConsoleService.Info($"  Langage : {language ?? "auto"}");
-            ConsoleService.Info($"  Dossier : {outputDir}");
-            ConsoleService.Info("  Aucun fichier genere. Passe --dry-run pour generer.");
+            ShowDryRun(name, template, language, outputDir);
             return 0;
         }
 
         if (Directory.Exists(outputDir) && Directory.GetFiles(outputDir).Length > 0)
         {
+            var overwrite = silent || ConsoleService.Confirm(
+                "[yellow]Le dossier existe deja. Ecraser ?[/]", false);
+            if (!overwrite)
+            {
+                ConsoleService.Warning("Operation annulee.");
+                return 1;
+            }
             BackupExisting(outputDir);
         }
 
-        ConsoleService.Debug($"Generation : template={template}, name={name}, output={outputDir}, lang={language ?? "auto"}");
-
-        var (exitCode, _, usedTemplate) = GenerateProject(name, template, outputDir, language);
-
-        if (!silent)
-            Console.WriteLine();
-
-        if (exitCode == 0)
+        if (template.Contains('+'))
         {
-            RunPostGenHooks(usedTemplate ?? template, outputDir);
+            return HandleComposite(silent, noGit, name, template, outputDir, language);
+        }
+
+        if (template == "hello")
+        {
+            if (string.IsNullOrWhiteSpace(language) && isInteractive)
+            {
+                language = PickHelloLanguage();
+            }
+        }
+
+        return GenerateAndFinish(silent, noGit, name, template, outputDir, language);
+    }
+
+    private static string PickHelloLanguage()
+    {
+        return ConsoleService.Select(
+            "  [white]\u2714[/] Choisis ton langage :",
+            HelloLanguages.Select(l => char.ToUpper(l[0]) + l[1..]).ToArray()
+        ).ToLowerInvariant();
+    }
+
+    private (string name, string template, string? language) RunInteractiveWizard()
+    {
+        ConsoleService.MarkupLine("[bold yellow]\u26a1  Assistant de creation de projet[/]");
+        ConsoleService.MarkupLine("[gray]  Suis les etapes pour creer ton projet.[/]");
+        ConsoleService.KeyboardHint();
+        ConsoleService.WriteLine();
+
+        ConsoleService.StepHeader(1, 4, "Nom du projet");
+        var name = ConsoleService.Prompt(
+            "  [white]\u2714[/] Nom du projet :",
+            "mon-projet",
+            validate: v =>
+            {
+                if (string.IsNullOrWhiteSpace(v)) return false;
+                if (v.Contains(' ')) return false;
+                if (v.IndexOfAny(Path.GetInvalidFileNameChars()) >= 0) return false;
+                return true;
+            },
+            errorMsg: "Nom invalide. Utilise uniquement des lettres, chiffres et tirets."
+        );
+
+        ConsoleService.StepHeader(2, 4, "Type de projet");
+        ConsoleService.KeyboardHint();
+        var category = ConsoleService.Select(
+            "  [white]\u2714[/] Choisis un type :",
+            ["Application Hello World", "Framework complet", "Stack fullstack"]
+        );
+
+        string template;
+        string? language = null;
+
+        switch (category)
+        {
+            case "Application Hello World":
+                template = "hello";
+                ConsoleService.StepHeader(3, 4, "Langage");
+                ConsoleService.KeyboardHint();
+                language = PickHelloLanguage();
+                break;
+
+            case "Stack fullstack":
+                template = "stack";
+                ConsoleService.MarkupLine("[yellow]Lancement de l'assistant stack...[/]");
+                ConsoleService.MarkupLine("[cyan]Execute plutot : [white]scaffold stack --name {name}[/][/]");
+                ConsoleService.WriteLine();
+                return ("", "", "");
+
+            default:
+                template = SelectFrameworkWithVariant();
+                break;
+        }
+
+        ConsoleService.StepHeader(3, 4, "Recapitulatif");
+        ConsoleService.WriteLine();
+        ConsoleService.SummaryLine("Projet", name);
+        ConsoleService.SummaryLine("Template", template);
+        if (language != null)
+            ConsoleService.SummaryLine("Langage", language);
+        ConsoleService.SummaryLine("Dossier", Path.Combine(Directory.GetCurrentDirectory(), name));
+        ConsoleService.WriteLine();
+
+        var confirm = ConsoleService.Confirm(
+            "[green]  Generer le projet ?[/]", true);
+
+        if (!confirm)
+        {
+            ConsoleService.Warning("Operation annulee.");
+            Environment.Exit(0);
+        }
+
+        ConsoleService.WriteLine();
+        return (name, template, language);
+    }
+
+    private string SelectFrameworkWithVariant()
+    {
+        ConsoleService.KeyboardHint();
+        var adapterChoice = ConsoleService.Select(
+            "  [white]\u2714[/] Choisis un ecosysteme :",
+            Adapters.Select(a =>
+            {
+                var avail = a.IsAvailable ? "" : " (\u274c outil non installe)";
+                var subs = a.SubTemplates.Length > 1 ? $" ({a.SubTemplates.Length} variantes)" : "";
+                return $"{a.Name} \u2014 {a.Description}{subs}{avail}";
+            }).ToArray()
+        );
+
+        var adapter = Adapters.First(a =>
+            adapterChoice.StartsWith(a.Name + " \u2014"));
+
+        if (!adapter.IsAvailable)
+        {
+            ConsoleService.Warning($"L'outil requis pour '{adapter.Name}' n'est pas installe.");
+            var fallback = ConsoleService.Confirm(
+                "[yellow]  Utiliser le template Hello World a la place ?[/]", true);
+            if (fallback)
+            {
+                ConsoleService.StepHeader(3, 4, "Langage");
+                ConsoleService.KeyboardHint();
+                return PickHelloLanguage();
+            }
+            Environment.Exit(1);
+            return "";
+        }
+
+        if (adapter.SubTemplates.Length > 1)
+        {
+            ConsoleService.StepHeader(3, 4, "Variante");
+            ConsoleService.KeyboardHint();
+            return ConsoleService.Select(
+                "  [white]\u2714[/] Choisis une variante :",
+                adapter.SubTemplates
+            );
+        }
+
+        return adapter.SubTemplates.FirstOrDefault() ?? adapter.Name;
+    }
+
+    private int HandleComposite(bool silent, bool noGit, string name, string template, string outputDir, string? language)
+    {
+        var parts = template.Split('+', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries);
+        ConsoleService.Info($"Composition de {parts.Length} templates : {string.Join(", ", parts)}");
+        ConsoleService.WriteLine();
+
+        var allOk = true;
+        var used = new List<string>();
+
+        foreach (var part in parts)
+        {
+            var subDir = Path.Combine(outputDir, part);
+            var (code, _, usedTmpl) = GenerateProjectCore(part, part, subDir, language);
+            if (code != 0) allOk = false;
+            if (usedTmpl != null) used.Add(usedTmpl);
+        }
+
+        if (allOk)
+        {
+            if (!noGit) GitInit(outputDir);
+            ConsoleService.Success($"Projet compose '{name}' cree avec succes !");
+            ConsoleService.Info($"  {outputDir}");
+            ConsoleService.Info($"  Templates : {string.Join(", ", used)}");
+        }
+
+        return allOk ? 0 : 1;
+    }
+
+    private int GenerateAndFinish(bool silent, bool noGit, string name, string template, string outputDir, string? language)
+    {
+        var success = true;
+        string? usedTemplate = null;
+
+        ConsoleService.ShowSpinner(
+            "  Generation du projet...",
+            () =>
+            {
+                var result = GenerateProjectCore(name, template, outputDir, language);
+                success = result.ExitCode == 0;
+                usedTemplate = result.UsedTemplate;
+                return Task.CompletedTask;
+            }).GetAwaiter().GetResult();
+
+        ConsoleService.WriteLine();
+
+        if (success)
+        {
+            RunPostGenHooks(usedTemplate ?? template, outputDir, silent);
 
             if (!noGit)
                 GitInit(outputDir);
 
             if (!silent)
             {
-                ConsoleService.Success($"Projet '{name}' cree avec succes !");
-                ConsoleService.Info($"  {outputDir}");
-                ConsoleService.Info($"  cd {outputDir} && regarde le README.md pour commencer");
+                ConsoleService.WriteLine();
+                ConsoleService.MarkupLine($"[bold green]\u2728  Projet '{Escape(name)}' cree avec succes ![/]");
+                ConsoleService.WriteLine();
+                ConsoleService.MarkupLine("[gray]  Pour commencer :[/]");
+                ConsoleService.MarkupLine($"    [cyan]cd {Escape(name)}[/]");
+                ConsoleService.MarkupLine("    [cyan]dotnet run[/]  (ou la commande indiquee dans le README)");
+                ConsoleService.WriteLine();
             }
         }
         else if (!silent)
@@ -185,91 +367,48 @@ public class NewCommand : Command
             ConsoleService.Error($"Echec de la creation du projet '{name}'.");
         }
 
-        return exitCode;
+        return success ? 0 : 1;
     }
 
-    private static string[] GetTemplateOptions()
+    private void ShowDryRun(string name, string template, string? language, string outputDir)
     {
-        var options = new List<string>
-        {
-            "hello \u2014 Application Hello World minimaliste"
-        };
+        ConsoleService.Info("PREVISUALISATION (--dry-run) :");
+        ConsoleService.SummaryLine("Template", template);
+        ConsoleService.SummaryLine("Nom", name);
+        ConsoleService.SummaryLine("Langage", language ?? "auto");
+        ConsoleService.SummaryLine("Dossier", outputDir);
+        ConsoleService.Info("Aucun fichier genere. Retire --dry-run pour generer.");
+    }
 
-        foreach (var adapter in Adapters)
+    private static string? GetFavTemplate()
+    {
+        var configDir = Path.Combine(
+            Environment.GetFolderPath(Environment.SpecialFolder.UserProfile), ".scaffolder");
+        var configFile = Path.Combine(configDir, "config.json");
+        if (File.Exists(configFile))
         {
-            var avail = adapter.IsAvailable ? "" : " (outil non installe)";
-            options.Add($"{adapter.Name} \u2014 {adapter.Description}{avail}");
-        }
-
-        // Ajouter les templates du registry
-        var registryDir = Path.Combine(
-            Environment.GetFolderPath(Environment.SpecialFolder.UserProfile),
-            ".scaffolder", "registry");
-        if (Directory.Exists(registryDir))
-        {
-            foreach (var tmplDir in Directory.GetDirectories(registryDir))
+            try
             {
-                var tmplName = Path.GetFileName(tmplDir);
-                if (options.Any(o => o.StartsWith(tmplName + " \u2014"))) continue;
-                var desc = "Template personnalise";
-                var metaPath = Path.Combine(tmplDir, "metadata.json");
-                if (File.Exists(metaPath))
-                {
-                    try
-                    {
-                        var meta = System.Text.Json.JsonSerializer.Deserialize<Dictionary<string, object>>(
-                            File.ReadAllText(metaPath), JsonContext.Default.DictionaryStringObject);
-                        if (meta != null && meta.TryGetValue("description", out var d))
-                            desc = d?.ToString() ?? desc;
-                    }
-                    catch { }
-                }
-                options.Add($"{tmplName} \u2014 {desc}");
+                var json = System.Text.Json.JsonSerializer.Deserialize<Dictionary<string, System.Text.Json.JsonElement>>(
+                    File.ReadAllText(configFile));
+                if (json != null && json.TryGetValue("fav", out var fav))
+                    return fav.GetString();
             }
+            catch { }
         }
-
-        return [.. options];
+        return null;
     }
 
     public static (int ExitCode, string Message, string? UsedTemplate) GenerateProjectStatic(
         string name, string template, string outputDir, string? language)
-        => GenerateProject(name, template, outputDir, language);
-
-    private static (int ExitCode, string Message, string? UsedTemplate) GenerateProject(
-        string name, string template, string outputDir, string? language)
     {
-        Directory.CreateDirectory(outputDir);
-
-        // Template composition: "webapi+react" -> generate both
-        if (template.Contains('+'))
-        {
-            var parts = template.Split('+', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries);
-            ConsoleService.Info($"Composition de {parts.Length} templates : {string.Join(", ", parts)}");
-            Console.WriteLine();
-            var allOk = true;
-            var used = new List<string>();
-            foreach (var part in parts)
-            {
-                var subDir = Path.Combine(outputDir, part);
-                var (code, _, usedTmpl) = GenerateProjectCore(part, part, subDir, language);
-                if (code != 0) allOk = false;
-                if (usedTmpl != null) used.Add(usedTmpl);
-            }
-            if (allOk)
-            {
-                ConsoleService.Success($"Projet compose '{name}' cree avec succes !");
-                ConsoleService.Info($"  {outputDir}");
-                ConsoleService.Info($"  Templates : {string.Join(", ", used)}");
-            }
-            return (allOk ? 0 : 1, "", string.Join("+", used));
-        }
-
         return GenerateProjectCore(name, template, outputDir, language);
     }
 
     private static (int ExitCode, string Message, string? UsedTemplate) GenerateProjectCore(
         string name, string template, string outputDir, string? language)
     {
+        Directory.CreateDirectory(outputDir);
 
         if (template == "hello")
         {
@@ -286,14 +425,13 @@ public class NewCommand : Command
             if (!adapter.IsAvailable)
             {
                 ConsoleService.Warning($"L'outil requis pour '{adapter.Name}' n'est pas installe.");
-                ConsoleService.Info("Utilisation du template hello a la place.");
+                ConsoleService.Info("Utilisation du template Hello World a la place.");
                 return (GenerateHelloWorld(name, outputDir, language), "Fallback vers hello", "hello");
             }
             var result = adapter.ScaffoldAsync(name, outputDir, template, language).GetAwaiter().GetResult();
             return (result.ExitCode, result.Message, adapter.Name);
         }
 
-        // Try registry templates
         if (TryGenerateFromRegistry(template, outputDir, name))
             return (0, "", template);
 
@@ -314,7 +452,6 @@ public class NewCommand : Command
         ConsoleService.Info($"Generation depuis le template registry '{template}'...");
         CopyDirectory(registryDir, outputDir);
 
-        // Generate project name in files if applicable
         var readmePath = Path.Combine(outputDir, "README.md");
         if (File.Exists(readmePath))
         {
@@ -351,7 +488,6 @@ public class NewCommand : Command
         }
 
         language = language.ToLowerInvariant();
-
         WriteHelloFiles(name, outputDir, language);
         return 0;
     }
@@ -455,50 +591,62 @@ public class NewCommand : Command
         File.WriteAllText(Path.Combine(dir, "README.md"), content);
     }
 
-    private static void RunPostGenHooks(string template, string outputDir)
+    private static void RunPostGenHooks(string template, string outputDir, bool silent = false)
     {
         var npmTemplates = new[] { "npm", "vite", "next", "react", "vue", "nuxt", "svelte", "solid" };
         if (npmTemplates.Contains(template))
         {
-            ConsoleService.Info("Installation des dependances npm...");
-            var npmResult = ProcessService.RunAsync(
-                "npm", "install",
-                workingDirectory: outputDir,
-                streamOutput: false
-            ).GetAwaiter().GetResult();
-
-            if (npmResult.ExitCode == 0)
-                ConsoleService.Success("Dependances installees avec succes.");
-            else
-                ConsoleService.Warning("npm install a echoue. Lance 'npm install' manuellement.");
+            if (silent) return;
+            ConsoleService.ShowSpinner(
+                "  Installation des dependances npm...",
+                async () =>
+                {
+                    var npmResult = await ProcessService.RunAsync(
+                        "npm", "install",
+                        workingDirectory: outputDir,
+                        streamOutput: false
+                    );
+                    if (npmResult.ExitCode == 0)
+                        ConsoleService.Success("Dependances installees avec succes.");
+                    else
+                        ConsoleService.Warning("npm install a echoue. Lance 'npm install' manuellement.");
+                }).GetAwaiter().GetResult();
         }
 
         if (template == "cargo" || template == "rust" || template.StartsWith("cargo-"))
         {
-            ConsoleService.Info("Verification du projet Rust...");
-            var cargoResult = ProcessService.RunAsync(
-                "cargo", "check",
-                workingDirectory: outputDir,
-                streamOutput: false
-            ).GetAwaiter().GetResult();
-
-            if (cargoResult.ExitCode == 0)
-                ConsoleService.Success("Projet Rust verifie avec succes.");
-            else
-                ConsoleService.Warning("cargo check a echoue. Verifie le projet manuellement.");
+            if (silent) return;
+            ConsoleService.ShowSpinner(
+                "  Verification du projet Rust...",
+                async () =>
+                {
+                    var cargoResult = await ProcessService.RunAsync(
+                        "cargo", "check",
+                        workingDirectory: outputDir,
+                        streamOutput: false
+                    );
+                    if (cargoResult.ExitCode == 0)
+                        ConsoleService.Success("Projet Rust verifie avec succes.");
+                    else
+                        ConsoleService.Warning("cargo check a echoue. Verifie le projet manuellement.");
+                }).GetAwaiter().GetResult();
         }
 
         if (template == "go" || template == "golang")
         {
-            ConsoleService.Info("Telechargement des dependances Go...");
-            var goResult = ProcessService.RunAsync(
-                "go", "mod tidy",
-                workingDirectory: outputDir,
-                streamOutput: false
-            ).GetAwaiter().GetResult();
-
-            if (goResult.ExitCode == 0)
-                ConsoleService.Success("Dependances Go installees.");
+            if (silent) return;
+            ConsoleService.ShowSpinner(
+                "  Telechargement des dependances Go...",
+                async () =>
+                {
+                    var goResult = await ProcessService.RunAsync(
+                        "go", "mod tidy",
+                        workingDirectory: outputDir,
+                        streamOutput: false
+                    );
+                    if (goResult.ExitCode == 0)
+                        ConsoleService.Success("Dependances Go installees.");
+                }).GetAwaiter().GetResult();
         }
     }
 
@@ -530,42 +678,50 @@ public class NewCommand : Command
         }
         catch
         {
-            return true; // si on peut pas verifier, on laisse faire
+            return true;
         }
     }
 
     private static void GitInit(string outputDir)
     {
-        ConsoleService.Info("Initialisation du depot Git...");
+        ConsoleService.ShowSpinner(
+            "  Initialisation du depot Git...",
+            async () =>
+            {
+                var initResult = await ProcessService.RunAsync(
+                    "git", "init",
+                    workingDirectory: outputDir,
+                    streamOutput: false
+                );
 
-        var initResult = ProcessService.RunAsync(
-            "git", "init",
-            workingDirectory: outputDir,
-            streamOutput: false
-        ).GetAwaiter().GetResult();
+                if (initResult.ExitCode == 0)
+                {
+                    await ProcessService.RunAsync(
+                        "git", "add .",
+                        workingDirectory: outputDir,
+                        streamOutput: false
+                    );
 
-        if (initResult.ExitCode == 0)
-        {
-            ProcessService.RunAsync(
-                "git", "add .",
-                workingDirectory: outputDir,
-                streamOutput: false
-            ).GetAwaiter().GetResult();
+                    var commitResult = await ProcessService.RunAsync(
+                        "git", "commit -m \"Initial commit with Scaffolder\" --allow-empty",
+                        workingDirectory: outputDir,
+                        streamOutput: false
+                    );
 
-            var commitResult = ProcessService.RunAsync(
-                "git", "commit -m \"Initial commit with Scaffolder\" --allow-empty",
-                workingDirectory: outputDir,
-                streamOutput: false
-            ).GetAwaiter().GetResult();
+                    if (commitResult.ExitCode == 0)
+                        ConsoleService.Success("Depot Git initialise avec le premier commit.");
+                    else
+                        ConsoleService.Warning("Git commit a echoue. Verifie ta config Git (user.name, user.email).");
+                }
+                else
+                {
+                    ConsoleService.Warning("Git n'est pas installe ou a echoue.");
+                }
+            }).GetAwaiter().GetResult();
+    }
 
-            if (commitResult.ExitCode == 0)
-                ConsoleService.Success("Depot Git initialise avec le premier commit.");
-            else
-                ConsoleService.Warning("Git commit a echoue. Verifie ta config Git (user.name, user.email).");
-        }
-        else
-        {
-            ConsoleService.Warning("Git n'est pas installe ou a echoue. Ignore l'initialisation Git.");
-        }
+    private static string Escape(string text)
+    {
+        return text?.Replace("[", "[[").Replace("]", "]]") ?? "";
     }
 }
