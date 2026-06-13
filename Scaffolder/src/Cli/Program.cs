@@ -5,6 +5,7 @@ using Scaffolder.Services;
 var rootCommand = new RootCommand("Scaffolder — CLI universel pour générer des projets")
 {
     new NewCommand(),
+    new VersionCommand(),
     new UpgradeCommand(),
     new ConfigCommand(),
     new DoctorCommand(),
