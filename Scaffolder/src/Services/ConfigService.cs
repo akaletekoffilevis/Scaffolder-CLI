@@ -1,3 +1,6 @@
+using System.Text.Json;
+using Scaffolder;
+
 namespace Scaffolder.Services;
 
 public static class ConfigService
@@ -41,17 +44,8 @@ public static class ConfigService
 
         try
         {
-            dict = [];
-            foreach (var line in File.ReadAllLines(ConfigFile))
-            {
-                var trimmed = line.Trim();
-                if (!trimmed.Contains(':')) continue;
-                var parts = trimmed.Split(':', 2);
-                var k = parts[0].Trim(' ', '"', '\t');
-                var v = parts[1].Trim(' ', '"', '\t', ',');
-                if (!string.IsNullOrEmpty(k))
-                    dict[k] = v;
-            }
+            var json = File.ReadAllText(ConfigFile);
+            dict = JsonSerializer.Deserialize(json, JsonContext.Default.DictionaryStringString) ?? [];
             return true;
         }
         catch
@@ -63,8 +57,7 @@ public static class ConfigService
     private static void SaveConfig(Dictionary<string, string> dict)
     {
         Directory.CreateDirectory(ConfigDir);
-        var lines = dict.Select(kv => $"  \"{kv.Key}\": \"{kv.Value}\"");
-        var json = "{\n" + string.Join(",\n", lines) + "\n}\n";
+        var json = JsonSerializer.Serialize(dict, JsonContext.Default.DictionaryStringString);
         File.WriteAllText(ConfigFile, json);
     }
 }

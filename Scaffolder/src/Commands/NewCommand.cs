@@ -75,9 +75,9 @@ public class NewCommand : Command
         Description = "Mode verbeux (logs detailles)"
     };
 
-    private readonly Option<string> _favOpt = new("--fav")
+    private readonly Option<bool> _favOpt = new("--fav")
     {
-        Description = "Utilise un template favori (configure avec scaffold config set fav <template>)"
+        Description = "Utilise le template favori (configure avec scaffold config set fav <template>)"
     };
 
     public NewCommand() : base("new", "Crée un nouveau projet")
@@ -101,12 +101,11 @@ public class NewCommand : Command
         var dryRun = pr.GetValue(_dryRunOpt);
         var noGit = pr.GetValue(_noGitOpt);
         var verbose = pr.GetValue(_verboseOpt);
-        var fav = pr.GetValue(_favOpt);
+        var useFav = pr.GetValue(_favOpt);
 
         ConsoleService.Verbose = verbose;
         var hasTemplate = !string.IsNullOrWhiteSpace(pr.GetValue(_templateOpt));
-        var hasFav = !string.IsNullOrWhiteSpace(fav);
-        var isInteractive = !hasTemplate && !hasFav;
+        var isInteractive = !hasTemplate && !useFav;
 
         if (!silent)
         {
@@ -114,7 +113,8 @@ public class NewCommand : Command
             ConsoleService.WriteLine();
         }
 
-        if (hasFav)
+        string? fav = null;
+        if (useFav)
         {
             fav = GetFavTemplate();
             ConsoleService.Debug($"Template favori : {fav}");
@@ -426,7 +426,8 @@ public class NewCommand : Command
             {
                 ConsoleService.Warning($"L'outil requis pour '{adapter.Name}' n'est pas installe.");
                 ConsoleService.Info("Utilisation du template Hello World a la place.");
-                return (GenerateHelloWorld(name, outputDir, language), "Fallback vers hello", "hello");
+                GenerateHelloWorld(name, outputDir, language);
+                return (42, "Fallback vers hello (outil requis non installe)", "hello");
             }
             var result = adapter.ScaffoldAsync(name, outputDir, template, language).GetAwaiter().GetResult();
             return (result.ExitCode, result.Message, adapter.Name);

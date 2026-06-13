@@ -39,23 +39,31 @@ public class StackCommand : Command
 
     private static async Task<int> HandleStackAsync(string? name, string? frontend, string? backend, string? db, DirectoryInfo? output)
     {
-        // If no args, show interactive wizard
-        if (string.IsNullOrWhiteSpace(name))
+        // If any arg missing, show interactive wizard
+        var needsWizard = string.IsNullOrWhiteSpace(name)
+            || string.IsNullOrWhiteSpace(frontend)
+            || string.IsNullOrWhiteSpace(backend)
+            || string.IsNullOrWhiteSpace(db);
+
+        if (needsWizard)
         {
             ConsoleService.Info("=== Assistant Stack Fullstack ===");
             Console.WriteLine();
 
-            name = ConsoleService.Prompt("Nom du projet", "mon-app");
-            if (string.IsNullOrWhiteSpace(name)) name = "mon-app";
+            if (string.IsNullOrWhiteSpace(name))
+            {
+                name = ConsoleService.Prompt("Nom du projet", "mon-app");
+                if (string.IsNullOrWhiteSpace(name)) name = "mon-app";
+            }
 
             var frontends = new[] { "react", "vue", "svelte", "next", "nuxt", "none" };
-            frontend = ConsoleService.Select("Frontend", frontends);
+            frontend ??= ConsoleService.Select("Frontend", frontends);
 
             var backends = new[] { "webapi", "fastapi", "express", "laravel", "rails", "none" };
-            backend = ConsoleService.Select("Backend", backends);
+            backend ??= ConsoleService.Select("Backend", backends);
 
             var dbs = new[] { "postgres", "mysql", "sqlite", "mongodb", "none" };
-            db = ConsoleService.Select("Base de donnees", dbs);
+            db ??= ConsoleService.Select("Base de donnees", dbs);
         }
 
         ConsoleService.ShowLogo();

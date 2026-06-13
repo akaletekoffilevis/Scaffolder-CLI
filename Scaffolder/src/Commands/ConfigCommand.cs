@@ -1,4 +1,6 @@
 using System.CommandLine;
+using System.Text.Json;
+using Scaffolder;
 using Scaffolder.Services;
 
 namespace Scaffolder.Commands;
@@ -152,17 +154,8 @@ public class ConfigCommand : Command
 
         try
         {
-            var imported = new Dictionary<string, string>();
-            foreach (var line in File.ReadAllLines(file.FullName))
-            {
-                var trimmed = line.Trim();
-                if (!trimmed.Contains(':')) continue;
-                var parts = trimmed.Split(':', 2);
-                var k = parts[0].Trim(' ', '"', '\t');
-                var v = parts[1].Trim(' ', '"', '\t', ',');
-                if (!string.IsNullOrEmpty(k))
-                    imported[k] = v;
-            }
+            var imported = JsonSerializer.Deserialize(
+                File.ReadAllText(file.FullName), JsonContext.Default.DictionaryStringString) ?? [];
 
             if (!ReadConfig(out var current))
                 current = [];
@@ -187,8 +180,7 @@ public class ConfigCommand : Command
             return 1;
 
         var exportPath = file?.FullName ?? Path.Combine(Directory.GetCurrentDirectory(), "scaffold-config.json");
-        var lines = dict.Select(kv => $"  \"{kv.Key}\": \"{kv.Value}\"");
-        var json = "{\n" + string.Join(",\n", lines) + "\n}\n";
+        var json = JsonSerializer.Serialize(dict, JsonContext.Default.DictionaryStringString);
         File.WriteAllText(exportPath, json);
         ConsoleService.Success($"Configuration exportee vers {exportPath}");
         return 0;
@@ -205,17 +197,8 @@ public class ConfigCommand : Command
 
         try
         {
-            dict = [];
-            foreach (var line in File.ReadAllLines(ConfigFile))
-            {
-                var trimmed = line.Trim();
-                if (!trimmed.Contains(':')) continue;
-                var parts = trimmed.Split(':', 2);
-                var k = parts[0].Trim(' ', '"', '\t');
-                var v = parts[1].Trim(' ', '"', '\t', ',');
-                if (!string.IsNullOrEmpty(k))
-                    dict[k] = v;
-            }
+            var json = File.ReadAllText(ConfigFile);
+            dict = JsonSerializer.Deserialize(json, JsonContext.Default.DictionaryStringString) ?? [];
             return true;
         }
         catch
@@ -228,8 +211,7 @@ public class ConfigCommand : Command
     private static void SaveConfig(Dictionary<string, string> dict)
     {
         Directory.CreateDirectory(ConfigDir);
-        var lines = dict.Select(kv => $"  \"{kv.Key}\": \"{kv.Value}\"");
-        var json = "{\n" + string.Join(",\n", lines) + "\n}\n";
+        var json = JsonSerializer.Serialize(dict, JsonContext.Default.DictionaryStringString);
         File.WriteAllText(ConfigFile, json);
     }
 }
