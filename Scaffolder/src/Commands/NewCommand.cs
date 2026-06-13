@@ -128,6 +128,8 @@ public class NewCommand : Command
         if (isInteractive)
         {
             (name, template, language) = RunInteractiveWizard();
+            if (string.IsNullOrEmpty(template))
+                return 0;
             outputDir ??= Path.Combine(Directory.GetCurrentDirectory(), name);
         }
         else
@@ -230,6 +232,8 @@ public class NewCommand : Command
 
             default:
                 template = SelectFrameworkWithVariant();
+                if (string.IsNullOrEmpty(template))
+                    return ("", "", null);
                 break;
         }
 
@@ -248,7 +252,7 @@ public class NewCommand : Command
         if (!confirm)
         {
             ConsoleService.Warning("Operation annulee.");
-            Environment.Exit(0);
+            return ("", "", null);
         }
 
         ConsoleService.WriteLine();
@@ -282,7 +286,7 @@ public class NewCommand : Command
                 ConsoleService.KeyboardHint();
                 return PickHelloLanguage();
             }
-            Environment.Exit(1);
+            ConsoleService.Warning("Operation annulee.");
             return "";
         }
 
@@ -357,8 +361,12 @@ public class NewCommand : Command
                 ConsoleService.MarkupLine($"[bold green]\u2728  Projet '{Escape(name)}' cree avec succes ![/]");
                 ConsoleService.WriteLine();
                 ConsoleService.MarkupLine("[gray]  Pour commencer :[/]");
-                ConsoleService.MarkupLine($"    [cyan]cd {Escape(name)}[/]");
-                ConsoleService.MarkupLine("    [cyan]dotnet run[/]  (ou la commande indiquee dans le README)");
+                ConsoleService.MarkupLine($"    [green]cd[/] [cyan]{Escape(name)}[/]");
+
+                var runCmd = GetRunCommand(usedTemplate ?? template);
+                if (runCmd != null)
+                    ConsoleService.MarkupLine($"    [green]{Escape(runCmd)}[/]");
+
                 ConsoleService.WriteLine();
             }
         }
@@ -724,5 +732,26 @@ public class NewCommand : Command
     private static string Escape(string text)
     {
         return text?.Replace("[", "[[").Replace("]", "]]") ?? "";
+    }
+
+    private static string? GetRunCommand(string template)
+    {
+        var t = template.ToLowerInvariant();
+        return t switch
+        {
+            "dotnet" or "webapi" or "blazor" or "console" => "dotnet run",
+            "npm" or "vite" or "react" or "vue" or "svelte" or "solid" or "next" or "nuxt" => "npm run dev",
+            "express" or "nest" => "npm run dev",
+            "cargo" or "rust" or "actix" or "rocket" => "cargo run",
+            "go" or "golang" => "go run .",
+            "python" or "fastapi" => "uvicorn main:app --reload",
+            "django" => "python manage.py runserver",
+            "flutter" => "flutter run",
+            "laravel" => "php artisan serve",
+            "rails" => "rails server",
+            "mix" or "phoenix" or "phx" => "mix phx.server",
+            "zig" => "zig run src/main.zig",
+            _ => null
+        };
     }
 }
