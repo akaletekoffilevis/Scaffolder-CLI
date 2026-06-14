@@ -1,5 +1,5 @@
 cask "scaffold" do
-  version "2.0.0"
+  version "2.1.0"
 
   on_macos do
     on_intel do

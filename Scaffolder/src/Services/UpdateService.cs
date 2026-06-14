@@ -147,12 +147,14 @@ public static class UpdateService
 
             ConsoleService.Info($"Installation vers : {currentPath}");
 
-            // On Linux/macOS, check if we need sudo
+            // Check permission by writing a temp file in the same directory
             var needSudo = false;
+            var dir = Path.GetDirectoryName(currentPath)!;
+            var testFile = Path.Combine(dir, ".scaffold-perm-test");
             try
             {
-                var testWrite = File.OpenWrite(currentPath);
-                testWrite.Close();
+                File.WriteAllText(testFile, "");
+                File.Delete(testFile);
             }
             catch (UnauthorizedAccessException)
             {
@@ -178,29 +180,21 @@ public static class UpdateService
             }
             else
             {
-                // Rename old binary as backup, copy new one
-                var backupPath = currentPath + ".bak";
-                if (File.Exists(backupPath)) File.Delete(backupPath);
-                File.Move(currentPath, backupPath);
-
                 try
                 {
-                    File.Copy(extractedBinary, currentPath, overwrite: true);
+                    // Delete old binary (Linux allows deleting a running exe)
+                    File.Delete(currentPath);
+                    File.Copy(extractedBinary, currentPath);
                     if (!OperatingSystem.IsWindows())
                     {
-                        var chmodResult = await ProcessService.RunAsync(
+                        await ProcessService.RunAsync(
                             "chmod", $"+x \"{currentPath}\"",
                             streamOutput: false).ConfigureAwait(false);
                     }
                     ConsoleService.Success("Mise a jour installee !");
-                    // Clean up backup
-                    if (File.Exists(backupPath)) File.Delete(backupPath);
                 }
                 catch (Exception ex)
                 {
-                    // Restore backup
-                    if (File.Exists(backupPath))
-                        File.Move(backupPath, currentPath);
                     ConsoleService.Error($"Echec de l'installation : {ex.Message}");
                     return false;
                 }
