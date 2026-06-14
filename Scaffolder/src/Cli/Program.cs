@@ -1,4 +1,5 @@
 using System.CommandLine;
+using System.Linq;
 using Scaffolder.Commands;
 using Scaffolder.Services;
 
@@ -46,13 +47,15 @@ var rootCommand = new RootCommand("Scaffolder — CLI universel pour générer d
     new WorkspaceCommand()
 };
 
-var versionAlias = new Option<bool>("-v") { Description = "Show version information" };
-rootCommand.Add(versionAlias);
+var builtinVer = rootCommand.Options.OfType<VersionOption>().FirstOrDefault();
+if (builtinVer != null) rootCommand.Options.Remove(builtinVer);
+var versionOpt = new Option<bool>("--version", new[] { "-v" }) { Description = "Show version information" };
+rootCommand.Options.Add(versionOpt);
 
 rootCommand.SetAction((ParseResult pr) =>
 {
     ConsoleService.CheckFirstRun();
-    if (pr.GetValue(versionAlias))
+    if (pr.GetValue(versionOpt))
     {
         Console.WriteLine($"Scaffolder v{UpdateService.CurrentVersion}");
         return 0;
