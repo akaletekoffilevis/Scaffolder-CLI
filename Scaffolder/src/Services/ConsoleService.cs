@@ -154,7 +154,7 @@ public static class ConsoleService
 
     public static void StepHeader(int current, int total, string title)
     {
-        AnsiConsole.MarkupLine($"\n[bold cyan][{current}/{total}][/] [white]{Escape(title)}[/]");
+        AnsiConsole.MarkupLine($"\n[bold cyan]{Escape($"{current}/{total}")}[/] [white]{Escape(title)}[/]");
     }
 
     public static void KeyboardHint()
