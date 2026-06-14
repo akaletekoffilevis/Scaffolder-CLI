@@ -46,9 +46,17 @@ var rootCommand = new RootCommand("Scaffolder — CLI universel pour générer d
     new WorkspaceCommand()
 };
 
+var versionAlias = new Option<bool>("-v") { Description = "Show version information" };
+rootCommand.Add(versionAlias);
+
 rootCommand.SetAction((ParseResult pr) =>
 {
     ConsoleService.CheckFirstRun();
+    if (pr.GetValue(versionAlias))
+    {
+        Console.WriteLine($"Scaffolder v{UpdateService.CurrentVersion}");
+        return 0;
+    }
     ConsoleService.ShowLogo();
     Console.WriteLine();
     pr.RootCommandResult.Command.SetAction((ParseResult _) =>
