@@ -1,6 +1,7 @@
 using System.CommandLine;
 using System.Diagnostics;
 using System.Threading.Tasks;
+using Scaffolder;
 using Scaffolder.Adapters;
 using Scaffolder.Services;
 
@@ -397,10 +398,10 @@ public class NewCommand : Command
         {
             try
             {
-                var json = System.Text.Json.JsonSerializer.Deserialize<Dictionary<string, System.Text.Json.JsonElement>>(
-                    File.ReadAllText(configFile));
+                var json = System.Text.Json.JsonSerializer.Deserialize(
+                    File.ReadAllText(configFile), JsonContext.Default.DictionaryStringString);
                 if (json != null && json.TryGetValue("fav", out var fav))
-                    return fav.GetString();
+                    return fav;
             }
             catch { }
         }
