@@ -1,0 +1,81 @@
+name: Release AOT Binaries
+
+on:
+  push:
+    tags:
+      - 'v*'
+
+permissions:
+  contents: write
+
+jobs:
+  build:
+    name: Build ${{ matrix.rid }}
+    runs-on: ${{ matrix.os }}
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - rid: linux-x64
+            os: ubuntu-latest
+            suffix: ''
+          - rid: linux-musl-x64
+            os: ubuntu-latest
+            suffix: ''
+          - rid: linux-arm64
+            os: ubuntu-24.04-arm
+            suffix: ''
+          - rid: osx-x64
+            os: macos-13
+            suffix: ''
+          - rid: osx-arm64
+            os: macos-latest
+            suffix: ''
+          - rid: win-x64
+            os: windows-latest
+            suffix: .exe
+          - rid: win-x86
+            os: windows-latest
+            suffix: .exe
+
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: 9.0.x
+      - uses: actions/cache@v4
+        with:
+          path: ~/.nuget/packages
+          key: ${{ runner.os }}-nuget-${{ hashFiles('**/*.csproj') }}
+          restore-keys: |
+            ${{ runner.os }}-nuget-
+
+      - run: dotnet restore
+
+      - name: Publish AOT (${{ matrix.rid }})
+        run: dotnet publish -c Release -r ${{ matrix.rid }} --self-contained -o ./publish/${{ matrix.rid }}
+
+      - name: Rename binary
+        shell: bash
+        run: |
+          mv ./publish/${{ matrix.rid }}/scaffold${{ matrix.suffix }} ./publish/${{ matrix.rid }}/scaffold-${{ matrix.rid }}${{ matrix.suffix }}
+
+      - name: Compress (tar.gz)
+        shell: bash
+        run: |
+          cd ./publish/${{ matrix.rid }}
+          tar czf ../scaffold-${{ matrix.rid }}.tar.gz scaffold-${{ matrix.rid }}${{ matrix.suffix }}
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: scaffold-${{ matrix.rid }}
+          path: ./publish/${{ matrix.rid }}/
+
+      - name: Upload release asset
+        if: startsWith(github.ref, 'refs/tags/')
+        uses: softprops/action-gh-release@v2
+        with:
+          files: |
+            ./publish/scaffold-${{ matrix.rid }}.tar.gz
+          generate_release_notes: true
+          append_body: true
