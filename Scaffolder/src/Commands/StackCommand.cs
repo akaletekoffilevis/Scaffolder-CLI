@@ -5,7 +5,7 @@ namespace Scaffolder.Commands;
 
 public class StackCommand : Command
 {
-    public StackCommand() : base("stack", "Genere un projet fullstack (frontend + backend + db)")
+    public StackCommand() : base("stack", "Génère un projet fullstack (frontend + backend + db)")
     {
         var nameOpt = new Option<string>("--name") { Description = "Nom du projet" };
         var frontendOpt = new Option<string>("--frontend")
@@ -91,16 +91,16 @@ public class StackCommand : Command
                 _ => "npm vite"
             };
 
-            ConsoleService.Info($"Generation du frontend ({frontend})...");
+            ConsoleService.Info($"Génération du frontend ({frontend})...");
             var result = await ProcessService.RunAsync("dotnet",
                 $"run --project src/Scaffolder.csproj -- new --template={frontendTemplate.Split(' ')[1]} --name={name}-frontend --output={frontendDir} --no-git --silent",
                 Directory.GetCurrentDirectory());
 
             if (result.ExitCode == 0)
-                ConsoleService.Success($"  Frontend {frontend} genere");
+                ConsoleService.Success($"  Frontend {frontend} généré");
             else
             {
-                ConsoleService.Error($"  Echec frontend {frontend}");
+                ConsoleService.Error($"  Échec frontend {frontend}");
                 success = false;
             }
         }
@@ -119,16 +119,16 @@ public class StackCommand : Command
                 _ => "dotnet webapi"
             };
 
-            ConsoleService.Info($"Generation du backend ({backend})...");
+            ConsoleService.Info($"Génération du backend ({backend})...");
             var result = await ProcessService.RunAsync("dotnet",
                 $"run --project src/Scaffolder.csproj -- new --template={backendTemplate.Split(' ')[^1]} --name={name}-backend --output={backendDir} --no-git --silent",
                 Directory.GetCurrentDirectory());
 
             if (result.ExitCode == 0)
-                ConsoleService.Success($"  Backend {backend} genere");
+                ConsoleService.Success($"  Backend {backend} généré");
             else
             {
-                ConsoleService.Error($"  Echec backend {backend}");
+                ConsoleService.Error($"  Échec backend {backend}");
                 success = false;
             }
         }
@@ -195,7 +195,7 @@ DB_PASS=secret
 DB_HOST=localhost
 DB_PORT={(db == "postgres" ? "5432" : db == "mysql" ? "3306" : "27017")}
 """);
-            ConsoleService.Success($"  DB {db} configuree");
+            ConsoleService.Success($"  DB {db} configurée");
         }
 
         // Create root README
@@ -221,9 +221,9 @@ docker compose -f docker/docker-compose.yml up -d
 
         Console.WriteLine();
         if (success)
-            ConsoleService.Success($"Stack '{name}' generee avec succes !");
+            ConsoleService.Success($"Stack '{name}' générée avec succès !");
         else
-            ConsoleService.Warning("Stack generee avec des erreurs (voir ci-dessus).");
+            ConsoleService.Warning("Stack générée avec des erreurs (voir ci-dessus).");
 
         ConsoleService.Info($"  cd {Path.Combine(baseDir, name)}");
         return success ? 0 : 1;

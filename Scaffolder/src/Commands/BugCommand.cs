@@ -7,7 +7,7 @@ namespace Scaffolder.Commands;
 
 public class BugCommand : Command
 {
-    public BugCommand() : base("bug", "Signale un bug par email ou GitHub")
+    public BugCommand() : base("bug", "Signale un bug par e-mail ou GitHub")
     {
         var descArg = new Argument<string>("description")
         {
@@ -24,7 +24,7 @@ public class BugCommand : Command
         var subject = Uri.EscapeDataString("[Scaffolder Bug] Rapport");
         var body = Uri.EscapeDataString(
             $"Description : {description ?? "(non fournie)"}\n\n" +
-            $"--- Information système ---\n" +
+            $"--- Informations système ---\n" +
             $"OS: {RuntimeInformation.OSDescription}\n" +
             $"Architecture: {RuntimeInformation.OSArchitecture}\n" +
             $".NET: {RuntimeInformation.FrameworkDescription}\n" +

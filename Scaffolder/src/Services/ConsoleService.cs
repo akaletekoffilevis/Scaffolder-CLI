@@ -64,7 +64,7 @@ public static class ConsoleService
     public static void ShowLogo()
     {
         AnsiConsole.Write(new FigletText("Scaffolder").Centered().Color(Spectre.Console.Color.Blue));
-        AnsiConsole.MarkupLine("[cyan]  CLI universel pour generer des projets[/]");
+        AnsiConsole.MarkupLine("[cyan]  CLI universel pour générer des projets[/]");
         AnsiConsole.MarkupLine("[cyan]  github.com/akaletekoffilevis/Scaffolder-CLI[/]");
     }
 
@@ -76,7 +76,7 @@ public static class ConsoleService
         AnsiConsole.WriteLine();
         AnsiConsole.MarkupLine("[green]\U0001f44b  Bienvenue dans Scaffolder ![/]");
         AnsiConsole.WriteLine();
-        Info("Je vais t'aider a creer ton premier projet en 30 secondes.");
+        Info("Je vais t'aider à créer ton premier projet en 30 secondes.");
         Info("Scaffolder fonctionne avec tous les langages : C#, Python, JS, Rust, Go...");
         AnsiConsole.WriteLine();
         AnsiConsole.MarkupLine("[yellow]\U0001f4d6  Tape `scaffold --help` pour voir toutes les commandes.[/]");
@@ -159,7 +159,7 @@ public static class ConsoleService
 
     public static void KeyboardHint()
     {
-        AnsiConsole.MarkupLine("[gray]  \u2328 Utilise les fleches (↑ ↓) et Entree pour choisir. Tape pour chercher.[/]");
+        AnsiConsole.MarkupLine("[gray]  \u2328 Utilise les flèches (↑ ↓) et Entrée pour choisir. Tapez pour filtrer.[/]");
     }
 
     public static void SummaryLine(string label, string value)

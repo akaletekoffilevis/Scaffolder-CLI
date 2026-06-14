@@ -49,7 +49,7 @@ var rootCommand = new RootCommand("Scaffolder — CLI universel pour générer d
 
 var builtinVer = rootCommand.Options.OfType<VersionOption>().FirstOrDefault();
 if (builtinVer != null) rootCommand.Options.Remove(builtinVer);
-var versionOpt = new Option<bool>("--version", new[] { "-v" }) { Description = "Show version information" };
+var versionOpt = new Option<bool>("--version", new[] { "-v" }) { Description = "Affiche la version" };
 rootCommand.Options.Add(versionOpt);
 
 rootCommand.SetAction((ParseResult pr) =>
@@ -64,8 +64,8 @@ rootCommand.SetAction((ParseResult pr) =>
     Console.WriteLine();
     pr.RootCommandResult.Command.SetAction((ParseResult _) =>
     {
-        ConsoleService.Info("Tape `scaffold --help` pour voir toutes les commandes.");
-        ConsoleService.Info("Tape `scaffold new` pour créer ton premier projet.");
+        ConsoleService.Info("Utilise `scaffold --help` pour voir toutes les commandes.");
+        ConsoleService.Info("Utilise `scaffold new` pour créer ton premier projet.");
         return 0;
     });
     return 0;

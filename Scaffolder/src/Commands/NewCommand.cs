@@ -58,7 +58,7 @@ public class NewCommand : Command
 
     private readonly Option<bool> _dryRunOpt = new("--dry-run")
     {
-        Description = "Previsualisation sans generer"
+        Description = "Prévisualisation sans générer"
     };
 
     private readonly Option<bool> _silentOpt = new("--silent")
@@ -73,12 +73,12 @@ public class NewCommand : Command
 
     private readonly Option<bool> _verboseOpt = new("--verbose")
     {
-        Description = "Mode verbeux (logs detailles)"
+        Description = "Mode verbeux (logs détaillés)"
     };
 
     private readonly Option<bool> _favOpt = new("--fav")
     {
-        Description = "Utilise le template favori (configure avec scaffold config set fav <template>)"
+        Description = "Utilise le template favori (configuré avec scaffold config set fav <template>)"
     };
 
     public NewCommand() : base("new", "Crée un nouveau projet")
@@ -151,10 +151,10 @@ public class NewCommand : Command
         if (Directory.Exists(outputDir) && Directory.GetFiles(outputDir).Length > 0)
         {
             var overwrite = silent || ConsoleService.Confirm(
-                "[yellow]Le dossier existe deja. Ecraser ?[/]", false);
+                "[yellow]Le dossier existe déjà. Écraser ?[/]", false);
             if (!overwrite)
             {
-                ConsoleService.Warning("Operation annulee.");
+                ConsoleService.Warning("Opération annulée.");
                 return 1;
             }
             BackupExisting(outputDir);
@@ -186,8 +186,8 @@ public class NewCommand : Command
 
     private (string name, string template, string? language) RunInteractiveWizard()
     {
-        ConsoleService.MarkupLine("[bold yellow]\u26a1  Assistant de creation de projet[/]");
-        ConsoleService.MarkupLine("[gray]  Suis les etapes pour creer ton projet.[/]");
+        ConsoleService.MarkupLine("[bold yellow]\u26a1  Assistant de création de projet[/]");
+        ConsoleService.MarkupLine("[gray]  Suis les étapes pour créer ton projet.[/]");
         ConsoleService.KeyboardHint();
         ConsoleService.WriteLine();
 
@@ -227,7 +227,7 @@ public class NewCommand : Command
             case "Stack fullstack":
                 template = "stack";
                 ConsoleService.MarkupLine("[yellow]Lancement de l'assistant stack...[/]");
-                ConsoleService.MarkupLine("[cyan]Execute plutot : [white]scaffold stack --name {name}[/][/]");
+                ConsoleService.MarkupLine("[cyan]Exécute plutôt : [white]scaffold stack --name {name}[/][/]");
                 ConsoleService.WriteLine();
                 return ("", "", "");
 
@@ -248,11 +248,11 @@ public class NewCommand : Command
         ConsoleService.WriteLine();
 
         var confirm = ConsoleService.Confirm(
-            "[green]  Generer le projet ?[/]", true);
+            "[green]  Générer le projet ?[/]", true);
 
         if (!confirm)
         {
-            ConsoleService.Warning("Operation annulee.");
+            ConsoleService.Warning("Opération annulée.");
             return ("", "", null);
         }
 
@@ -280,14 +280,14 @@ public class NewCommand : Command
         {
             ConsoleService.Warning($"L'outil requis pour '{adapter.Name}' n'est pas installe.");
             var fallback = ConsoleService.Confirm(
-                "[yellow]  Utiliser le template Hello World a la place ?[/]", true);
+                "[yellow]  Utiliser le template Hello World à la place ?[/]", true);
             if (fallback)
             {
                 ConsoleService.StepHeader(3, 4, "Langage");
                 ConsoleService.KeyboardHint();
                 return PickHelloLanguage();
             }
-            ConsoleService.Warning("Operation annulee.");
+            ConsoleService.Warning("Opération annulée.");
             return "";
         }
 
@@ -324,7 +324,7 @@ public class NewCommand : Command
         if (allOk)
         {
             if (!noGit) GitInit(outputDir);
-            ConsoleService.Success($"Projet compose '{name}' cree avec succes !");
+            ConsoleService.Success($"Projet composé '{name}' créé avec succès !");
             ConsoleService.Info($"  {outputDir}");
             ConsoleService.Info($"  Templates : {string.Join(", ", used)}");
         }
@@ -359,7 +359,7 @@ public class NewCommand : Command
             if (!silent)
             {
                 ConsoleService.WriteLine();
-                ConsoleService.MarkupLine($"[bold green]\u2728  Projet '{Escape(name)}' cree avec succes ![/]");
+                ConsoleService.MarkupLine($"[bold green]\u2728  Projet '{Escape(name)}' créé avec succès ![/]");
                 ConsoleService.WriteLine();
                 ConsoleService.MarkupLine("[gray]  Pour commencer :[/]");
                 ConsoleService.MarkupLine($"    [green]cd[/] [cyan]{Escape(name)}[/]");
@@ -373,7 +373,7 @@ public class NewCommand : Command
         }
         else if (!silent)
         {
-            ConsoleService.Error($"Echec de la creation du projet '{name}'.");
+            ConsoleService.Error($"Échec de la création du projet '{name}'.");
         }
 
         return success ? 0 : 1;
@@ -386,7 +386,7 @@ public class NewCommand : Command
         ConsoleService.SummaryLine("Nom", name);
         ConsoleService.SummaryLine("Langage", language ?? "auto");
         ConsoleService.SummaryLine("Dossier", outputDir);
-        ConsoleService.Info("Aucun fichier genere. Retire --dry-run pour generer.");
+        ConsoleService.Info("Aucun fichier généré. Retire --dry-run pour générer.");
     }
 
     private static string? GetFavTemplate()
@@ -459,7 +459,7 @@ public class NewCommand : Command
         if (!Directory.Exists(registryDir))
             return false;
 
-        ConsoleService.Info($"Generation depuis le template registry '{template}'...");
+        ConsoleService.Info($"Génération depuis le template registry '{template}'...");
         CopyDirectory(registryDir, outputDir);
 
         var readmePath = Path.Combine(outputDir, "README.md");
@@ -575,10 +575,9 @@ public class NewCommand : Command
                 WriteReadme(outputDir, name, "Zig", "zig run main.zig");
                 break;
             default:
-                ConsoleService.Error($"Langage '{lang}' non supporte.");
+                ConsoleService.Error($"Langage '{lang}' non supporté.");
                 ConsoleService.Info($"Langages disponibles : {string.Join(", ", HelloLanguages)}");
-                Environment.Exit(1);
-                break;
+                return;
         }
 
         WriteFile(outputDir, ".gitignore",
