@@ -13,26 +13,29 @@ public class FlutterAdapter : IAdapter
     public async Task<(int ExitCode, string Message)> ScaffoldAsync(
         string name, string outputDir, string subTemplate, string? language)
     {
-        var tpl = subTemplate switch
+        var template = subTemplate switch
         {
-            "flutter-package" or "package" => "--template=package",
-            "flutter-plugin" or "plugin" => "--template=plugin",
-            _ => "--template=app"
+            "flutter-package" or "package" => "package",
+            "flutter-plugin" or "plugin" => "plugin",
+            _ => "app"
         };
 
-        ConsoleService.Info($"  flutter create {name} {tpl}");
+        var parentDir = Directory.GetParent(outputDir)?.FullName ?? Environment.CurrentDirectory;
+        var dirName = new DirectoryInfo(outputDir).Name;
+
+        ConsoleService.Info($"  flutter create {dirName} --template={template}");
         Console.WriteLine();
 
-        var result = await ProcessService.RunAsync(
+        // flutter create cree lui-meme le dossier cible.
+        var result = await ProcessService.RunResultAsync(
             "flutter",
-            $"create {name} {tpl}",
-            workingDirectory: outputDir,
-            streamOutput: true
-        );
+            ["create", dirName, $"--template={template}"],
+            workingDirectory: parentDir,
+            streamOutput: true,
+            timeout: TimeSpan.FromMinutes(20));
 
-        if (result.ExitCode == 0)
-            return (0, $"Projet Flutter créé avec flutter create");
-
-        return (result.ExitCode, result.Output);
+        return result.Success
+            ? (0, "Projet Flutter créé avec flutter create")
+            : (result.ExitCode, result.Output);
     }
 }

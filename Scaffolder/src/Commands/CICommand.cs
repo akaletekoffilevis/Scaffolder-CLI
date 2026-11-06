@@ -105,7 +105,7 @@ public class CICommand : Command
 
             build:
               stage: build
-              image: mcr.microsoft.com/dotnet/sdk:9.0
+              image: mcr.microsoft.com/dotnet/sdk:10.0
               script:
                 - dotnet restore
                 - dotnet build --no-restore
@@ -116,7 +116,7 @@ public class CICommand : Command
 
             test:
               stage: test
-              image: mcr.microsoft.com/dotnet/sdk:9.0
+              image: mcr.microsoft.com/dotnet/sdk:10.0
               script:
                 - dotnet test --no-build
             """,
@@ -343,7 +343,7 @@ jobs:
       - uses: actions/checkout@v4
       - uses: actions/setup-dotnet@v4
         with:
-          dotnet-version: "9.0"
+          dotnet-version: "10.0"
       - run: dotnet restore
       - run: dotnet build --no-restore
       - run: dotnet test --no-build

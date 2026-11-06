@@ -138,7 +138,7 @@ dotnet run -- --help
 
 ```bash
 dotnet publish -c Release -r linux-x64 --self-contained
-./bin/Release/net9.0/linux-x64/publish/scaffold --help
+./bin/Release/net10.0/linux-x64/publish/scaffold --help
 ```
 
 ### Tests

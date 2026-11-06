@@ -15,24 +15,26 @@ public class ComposerAdapter : IAdapter
     {
         var package = subTemplate switch
         {
-            "laravel" => "laravel/laravel",
             "symfony" => "symfony/skeleton",
             _ => "laravel/laravel"
         };
 
-        ConsoleService.Info($"  composer create-project {package} {name}");
+        var parentDir = Directory.GetParent(outputDir)?.FullName ?? Environment.CurrentDirectory;
+        var dirName = new DirectoryInfo(outputDir).Name;
+
+        ConsoleService.Info($"  composer create-project {package} {dirName}");
         Console.WriteLine();
 
-        var result = await ProcessService.RunAsync(
+        // composer cree lui-meme le dossier cible.
+        var result = await ProcessService.RunResultAsync(
             "composer",
-            $"create-project {package} {name}",
-            workingDirectory: outputDir,
-            streamOutput: true
-        );
+            ["create-project", package, dirName],
+            workingDirectory: parentDir,
+            streamOutput: true,
+            timeout: TimeSpan.FromMinutes(20));
 
-        if (result.ExitCode == 0)
-            return (0, $"Projet PHP créé avec composer create-project");
-
-        return (result.ExitCode, result.Output);
+        return result.Success
+            ? (0, "Projet PHP créé avec composer create-project")
+            : (result.ExitCode, result.Output);
     }
 }

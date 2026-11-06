@@ -6,9 +6,25 @@ public static class ConsoleService
 {
     public static bool Verbose { get; set; } = false;
 
+    /// <summary>Reduit la sortie au strict necessaire (erreurs et avertissements uniquement).</summary>
+    public static bool Quiet { get; set; } = false;
+
+    /// <summary>Desactive les couleurs (utile pour les logs CI ou les terminaux sans support ANSI).</summary>
+    public static void DisableColor()
+    {
+        try
+        {
+            AnsiConsole.Profile.Capabilities.ColorSystem = Spectre.Console.ColorSystem.NoColors;
+        }
+        catch
+        {
+            // Certaines configurations de terminal ne permettent pas de modifier les capacites.
+        }
+    }
+
     public static void Debug(string text)
     {
-        if (Verbose)
+        if (Verbose && !Quiet)
             AnsiConsole.MarkupLine("[dim]  \U0001f50d {0}[/]", Escape(text));
     }
 
@@ -34,6 +50,7 @@ public static class ConsoleService
 
     public static void Success(string text)
     {
+        if (Quiet) return;
         AnsiConsole.MarkupLine("[green]  \u2705 {0}[/]", Escape(text));
     }
 
@@ -49,6 +66,7 @@ public static class ConsoleService
 
     public static void Info(string text)
     {
+        if (Quiet) return;
         AnsiConsole.MarkupLine("[cyan]  \u2139\ufe0f  {0}[/]", Escape(text));
     }
 
@@ -59,6 +77,7 @@ public static class ConsoleService
 
     public static void ShowLogo()
     {
+        if (Quiet) return;
         AnsiConsole.Write(new FigletText("Scaffolder").Centered().Color(Spectre.Console.Color.Blue));
         AnsiConsole.MarkupLine("[cyan]  CLI universel pour générer des projets[/]");
         AnsiConsole.MarkupLine("[cyan]  github.com/akaletekoffilevis/Scaffolder-CLI[/]");
@@ -189,6 +208,10 @@ public static class ConsoleService
 
     public static bool Confirm(string question, bool defaultValue = true)
     {
+        // --yes (ou -y) : accepte automatiquement toutes les confirmations.
+        if (AppOptions.Yes)
+            return true;
+
         if (Console.IsInputRedirected)
             return defaultValue;
 
@@ -299,5 +322,6 @@ public static class ConsoleService
         return ctx.AddTask(description, new ProgressTaskSettings { MaxValue = maxValue, AutoStart = true });
     }
 
-    private static string Escape(string text) => text?.Replace("[", "[[").Replace("]", "]]") ?? "";
+    /// <summary>Echappe le markup Spectre.Console. Expose pour eviter les duplications dans les commandes.</summary>
+    public static string Escape(string text) => text?.Replace("[", "[[").Replace("]", "]]") ?? "";
 }

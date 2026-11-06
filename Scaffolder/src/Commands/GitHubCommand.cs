@@ -125,7 +125,7 @@ jobs:
       - uses: actions/checkout@v4
       - uses: actions/setup-dotnet@v4
         with:
-          dotnet-version: "9.0"
+          dotnet-version: "10.0"
       - run: dotnet restore
       - run: dotnet build --no-restore
       - run: dotnet test --no-build

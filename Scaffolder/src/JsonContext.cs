@@ -21,7 +21,8 @@ namespace Scaffolder;
 [JsonSerializable(typeof(VersionManager.VersionInfo))]
 [JsonSourceGenerationOptions(
     WriteIndented = true,
-    PropertyNamingPolicy = JsonKnownNamingPolicy.CamelCase)]
+    PropertyNamingPolicy = JsonKnownNamingPolicy.CamelCase,
+    DefaultIgnoreCondition = JsonIgnoreCondition.WhenWritingNull)]
 public partial class JsonContext : JsonSerializerContext
 {
 }

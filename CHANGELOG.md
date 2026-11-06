@@ -1,5 +1,25 @@
 # Changelog
 
+## [2.2.0] — 2026-11-06
+
+### Migration
+- Migration vers .NET 10 (csproj, workflows CI, scripts de publication, README).
+
+### Ajouts
+- Nouvelles commandes : `scaffold list`, `scaffold stats`, `scaffold ai`
+- `scaffold new` : `--list`, `--force`, `--framework`, validation du nom, détection de dossier non vide
+- `scaffold add` : générateurs par langage (.NET, Node, Python, Go, Rust) et `--list`
+- `scaffold init` : clone sécurisé, compose `full` avec Dockerfiles, CI générée par langage
+- `scaffold doctor` : versions réelles des outils, configuration DB, sortie `--json`
+- Options globales `--yes`, `--no-color`, `--verbose`, `--quiet`, `--version`
+
+### Corrections et durcissement
+- Exécution des processus sans injection shell (`ArgumentList`), timeout et arrêt de l'arbre de processus
+- Les outils natifs (`dotnet new`, `npm create`, `cargo new`, `flutter create`, `composer create-project`, `rails new`, `mix new`) créent eux-mêmes leur dossier
+- Configuration chiffrée (AES-GCM), permissions 0600, écriture atomique
+- Mises à jour : vérification SHA-256 et extraction sécurisée
+- Comparaison SemVer correcte
+
 ## [2.0.0] — 2026-05-31
 
 ### Ajouts

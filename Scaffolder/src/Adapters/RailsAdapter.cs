@@ -13,19 +13,22 @@ public class RailsAdapter : IAdapter
     public async Task<(int ExitCode, string Message)> ScaffoldAsync(
         string name, string outputDir, string subTemplate, string? language)
     {
-        ConsoleService.Info($"  rails new {name}");
+        var parentDir = Directory.GetParent(outputDir)?.FullName ?? Environment.CurrentDirectory;
+        var dirName = new DirectoryInfo(outputDir).Name;
+
+        ConsoleService.Info($"  rails new {dirName}");
         Console.WriteLine();
 
-        var result = await ProcessService.RunAsync(
+        // rails new cree lui-meme le dossier cible.
+        var result = await ProcessService.RunResultAsync(
             "rails",
-            $"new {name}",
-            workingDirectory: outputDir,
-            streamOutput: true
-        );
+            ["new", dirName],
+            workingDirectory: parentDir,
+            streamOutput: true,
+            timeout: TimeSpan.FromMinutes(20));
 
-        if (result.ExitCode == 0)
-            return (0, $"Projet Rails créé avec rails new");
-
-        return (result.ExitCode, result.Output);
+        return result.Success
+            ? (0, "Projet Rails créé avec rails new")
+            : (result.ExitCode, result.Output);
     }
 }

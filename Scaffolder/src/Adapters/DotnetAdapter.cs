@@ -1,36 +1,57 @@
+using System.Text;
 using Scaffolder.Services;
 
 namespace Scaffolder.Adapters;
 
 public class DotnetAdapter : IAdapter
 {
+    private static readonly string[] TemplateNames = ["console", "webapi", "blazor", "maui", "classlib"];
+
     public string Name => "dotnet";
     public string Description => "Projets .NET (console, webapi, blazor, maui, classlib)";
     public string[] Languages => ["c#", "f#"];
-    public string[] SubTemplates => ["console", "webapi", "blazor", "maui", "classlib"];
+    public string[] SubTemplates => TemplateNames;
     public bool IsAvailable => ProcessService.CommandExists("dotnet");
 
     public async Task<(int ExitCode, string Message)> ScaffoldAsync(
         string name, string outputDir, string subTemplate, string? language)
     {
-        var tpl = string.IsNullOrWhiteSpace(subTemplate) ? "console" : subTemplate;
+        var tpl = string.IsNullOrWhiteSpace(subTemplate) ? "console" : subTemplate.Trim().ToLowerInvariant();
 
-        ConsoleService.Info($"  dotnet new {tpl} --name {name} --output {name}");
-        Console.WriteLine();
+        if (!TemplateNames.Contains(tpl))
+            return (2, $"Template .NET inconnu : {tpl}. Valeurs possibles : {string.Join(", ", TemplateNames)}");
 
-        var result = await ProcessService.RunAsync(
-            "dotnet",
-            $"new {tpl} --name {name} --output {outputDir}",
-            streamOutput: true
-        );
+        if (!ProcessService.CommandExists("dotnet"))
+            return (127, "Le SDK .NET n'est pas installe (https://dotnet.microsoft.com/download).");
 
-        if (result.ExitCode == 0)
+        var args = new List<string> { "new", tpl, "--name", name, "--output", outputDir };
+
+        // F# n'est disponible que pour certains templates.
+        var lang = (language ?? "").Trim().ToLowerInvariant();
+        if (lang is "f#" or "fsharp" && tpl is "console" or "classlib")
         {
-            PostGenerateEnhancements(outputDir, tpl, name);
-            return (0, $"Projet .NET {tpl} créé avec dotnet new");
+            args.Add("--language");
+            args.Add("F#");
         }
 
-        return (result.ExitCode, result.Output);
+        // Framework cible optionnel (ex: net10.0).
+        var framework = ConfigService.Get(ConfigService.Keys.Framework);
+        if (!string.IsNullOrWhiteSpace(framework) && framework.StartsWith("net", StringComparison.OrdinalIgnoreCase))
+        {
+            args.Add("--framework");
+            args.Add(framework);
+        }
+
+        ConsoleService.Info($"  dotnet {string.Join(' ', args)}");
+        Console.WriteLine();
+
+        var result = await ProcessService.RunResultAsync("dotnet", args, streamOutput: true);
+
+        if (!result.Success)
+            return (result.ExitCode, result.Output);
+
+        PostGenerateEnhancements(outputDir, tpl, name);
+        return (0, $"Projet .NET {tpl} créé avec dotnet new");
     }
 
     private static void PostGenerateEnhancements(string outputDir, string template, string name)
@@ -41,14 +62,15 @@ public class DotnetAdapter : IAdapter
         if (!string.IsNullOrWhiteSpace(author) || !string.IsNullOrWhiteSpace(company))
             PatchProjectFile(outputDir, author, company);
 
-        if (template == "webapi" || template == "blazor")
-        {
-            AddLogging(outputDir, name);
-            AddValidation(outputDir, name);
-        }
+        if (template is "webapi" or "blazor")
+            AddLogging(outputDir);
 
+        AddGitignore(outputDir);
         AddDockerSupport(outputDir, name, template);
         AddTestProject(outputDir, name, template);
+
+        if (template is "webapi" or "blazor")
+            AddSolutionIfMissing(outputDir, name);
     }
 
     private static void PatchProjectFile(string outputDir, string author, string company)
@@ -64,96 +86,105 @@ public class DotnetAdapter : IAdapter
         if (!string.IsNullOrWhiteSpace(company) && !content.Contains("<Company>"))
             insertions.Add($"    <Company>{company}</Company>");
 
-        if (insertions.Count > 0 && content.Contains("<PropertyGroup>"))
-        {
-            content = content.Replace(
-                "<PropertyGroup>",
-                "<PropertyGroup>\n" + string.Join("\n", insertions));
-            File.WriteAllText(csproj, content);
-            ConsoleService.Debug("Fichier .csproj enrichi avec auteur/entreprise.");
-        }
+        if (insertions.Count == 0) return;
+
+        var index = content.IndexOf("<PropertyGroup>", StringComparison.Ordinal);
+        if (index < 0) return;
+
+        var insertAt = index + "<PropertyGroup>".Length;
+        content = content.Insert(insertAt, "\n" + string.Join("\n", insertions));
+        File.WriteAllText(csproj, content);
+        ConsoleService.Debug("Fichier .csproj enrichi avec auteur/entreprise.");
     }
 
-    private static void AddLogging(string outputDir, string name)
+    private static void AddLogging(string outputDir)
     {
         var programCs = Path.Combine(outputDir, "Program.cs");
         if (!File.Exists(programCs)) return;
 
         var content = File.ReadAllText(programCs);
-        if (content.Contains("ILogger") || content.Contains("AddLogging")) return;
+        if (content.Contains("AddConsole", StringComparison.Ordinal)) return;
 
-        if (content.Contains("var builder = WebApplication.CreateBuilder"))
-        {
-            content = content.Replace(
-                "var builder = WebApplication.CreateBuilder(args);",
-                "var builder = WebApplication.CreateBuilder(args);\n\n// Logging\nbuilder.Logging.ClearProviders();\nbuilder.Logging.AddConsole();");
-            File.WriteAllText(programCs, content);
-            ConsoleService.Debug("Logging configure dans Program.cs.");
-        }
+        const string marker = "var builder = WebApplication.CreateBuilder(args);";
+        if (!content.Contains(marker, StringComparison.Ordinal)) return;
+
+        content = content.Replace(marker, marker + "\n\nbuilder.Logging.ClearProviders();\nbuilder.Logging.AddConsole();");
+        File.WriteAllText(programCs, content);
+        ConsoleService.Debug("Logging configure dans Program.cs.");
     }
 
-    private static void AddValidation(string outputDir, string name)
+    private static void AddGitignore(string outputDir)
     {
-        var csproj = Directory.GetFiles(outputDir, "*.csproj", SearchOption.TopDirectoryOnly).FirstOrDefault();
-        if (csproj == null) return;
+        var path = Path.Combine(outputDir, ".gitignore");
+        if (File.Exists(path)) return;
 
-        var content = File.ReadAllText(csproj);
-        if (content.Contains("FluentValidation") || content.Contains("DataAnnotations")) return;
-
-        ConsoleService.Debug("Pour la validation, ajoute FluentValidation ou utilise [Required] du package System.ComponentModel.Annotations.");
+        File.WriteAllText(path,
+            "bin/\nobj/\n.vs/\n*.user\n*.suo\n*.userosscache\nTestResults/\n[Dd]ebug/\n[Rr]elease/\n");
     }
 
     private static void AddDockerSupport(string outputDir, string name, string template)
     {
+        // Les bibliotheques et Maui n'ont pas de sens en conteneur.
+        if (template is "classlib" or "maui") return;
+
         var dockerFile = Path.Combine(outputDir, "Dockerfile");
         if (File.Exists(dockerFile)) return;
 
-        var isWeb = template == "webapi" || template == "blazor";
         var sdkVersion = GetSdkVersion();
+        var projectName = FindProjectFileName(outputDir) ?? $"{name}.csproj";
+        var assemblyName = Path.GetFileNameWithoutExtension(projectName);
+        var isWeb = template is "webapi" or "blazor";
 
-        var dockerfileContent = isWeb
-            ? $"FROM mcr.microsoft.com/dotnet/aspnet:{sdkVersion} AS base\n" +
-              $"WORKDIR /app\n" +
-              $"EXPOSE 80\n" +
-              $"EXPOSE 443\n\n" +
-              $"FROM mcr.microsoft.com/dotnet/sdk:{sdkVersion} AS build\n" +
-              $"WORKDIR /src\n" +
-              $"COPY [\"*.csproj\", \"./\"]\n" +
-              $"RUN dotnet restore\n\n" +
-              $"COPY . .\n" +
-              $"RUN dotnet build -c Release -o /app/build\n\n" +
-              $"FROM build AS publish\n" +
-              $"RUN dotnet publish -c Release -o /app/publish\n\n" +
-              $"FROM base AS final\n" +
-              $"WORKDIR /app\n" +
-              $"COPY --from=publish /app/publish .\n" +
-              $"ENTRYPOINT [\"dotnet\", \"{name}.dll\"]\n"
-            : $"FROM mcr.microsoft.com/dotnet/sdk:{sdkVersion} AS build\n" +
-              $"WORKDIR /src\n" +
-              $"COPY [\"*.csproj\", \"./\"]\n" +
-              $"RUN dotnet restore\n\n" +
-              $"COPY . .\n" +
-              $"RUN dotnet publish -c Release -o /app/publish\n\n" +
-              $"FROM mcr.microsoft.com/dotnet/aspnet:{sdkVersion}\n" +
-              $"WORKDIR /app\n" +
-              $"COPY --from=build /app/publish .\n" +
-              $"ENTRYPOINT [\"dotnet\", \"{name}.dll\"]\n";
+        var sb = new StringBuilder();
+        sb.AppendLine($"FROM mcr.microsoft.com/dotnet/sdk:{sdkVersion} AS build");
+        sb.AppendLine("WORKDIR /src");
+        sb.AppendLine($"COPY [\"{projectName}\", \"./\"]");
+        sb.AppendLine("RUN dotnet restore");
+        sb.AppendLine();
+        sb.AppendLine("COPY . .");
+        sb.AppendLine("RUN dotnet publish -c Release -o /app/publish /p:UseAppHost=false");
+        sb.AppendLine();
 
-        File.WriteAllText(dockerFile, dockerfileContent);
+        if (isWeb)
+        {
+            sb.AppendLine($"FROM mcr.microsoft.com/dotnet/aspnet:{sdkVersion} AS final");
+            sb.AppendLine("WORKDIR /app");
+            sb.AppendLine("EXPOSE 8080");
+            sb.AppendLine("ENV ASPNETCORE_URLS=http://+:8080");
+        }
+        else
+        {
+            // Application console : l'image runtime suffit (pas besoin d'ASP.NET).
+            sb.AppendLine($"FROM mcr.microsoft.com/dotnet/runtime:{sdkVersion} AS final");
+            sb.AppendLine("WORKDIR /app");
+        }
+
+        sb.AppendLine("COPY --from=build /app/publish .");
+        sb.AppendLine($"ENTRYPOINT [\"dotnet\", \"{assemblyName}.dll\"]");
+
+        File.WriteAllText(dockerFile, sb.ToString());
 
         var dockerignore = Path.Combine(outputDir, ".dockerignore");
         if (!File.Exists(dockerignore))
         {
             File.WriteAllText(dockerignore,
-                "**/bin/\n**/obj/\n**/node_modules/\n**/.vs/\n**/*.user\n**/*.suo\ngit/\n.github/\n");
+                "**/bin/\n**/obj/\n**/node_modules/\n**/.vs/\n**/*.user\n**/*.suo\n.git/\n.github/\n");
         }
 
         ConsoleService.Debug("Dockerfile et .dockerignore generes.");
     }
 
+    private static string? FindProjectFileName(string outputDir) =>
+        Directory.GetFiles(outputDir, "*.csproj", SearchOption.TopDirectoryOnly)
+            .Select(Path.GetFileName)
+            .FirstOrDefault();
+
     private static void AddTestProject(string outputDir, string name, string template)
     {
-        if (template == "console" || template == "maui") return;
+        if (template is "console" or "maui" or "classlib") return;
+
+        var projectFile = FindProjectFileName(outputDir);
+        if (projectFile == null) return;
 
         var testDir = Path.Combine(outputDir, $"{name}.Tests");
         if (Directory.Exists(testDir)) return;
@@ -164,7 +195,7 @@ public class DotnetAdapter : IAdapter
             <Project Sdk="Microsoft.NET.Sdk">
 
               <PropertyGroup>
-                <TargetFramework>net9.0</TargetFramework>
+                <TargetFramework>net10.0</TargetFramework>
                 <ImplicitUsings>enable</ImplicitUsings>
                 <Nullable>enable</Nullable>
                 <IsPackable>false</IsPackable>
@@ -172,13 +203,13 @@ public class DotnetAdapter : IAdapter
               </PropertyGroup>
 
               <ItemGroup>
-                <PackageReference Include="Microsoft.NET.Test.Sdk" Version="17.11.1" />
+                <PackageReference Include="Microsoft.NET.Test.Sdk" Version="17.12.0" />
                 <PackageReference Include="xunit" Version="2.9.2" />
                 <PackageReference Include="xunit.runner.visualstudio" Version="2.8.2" />
               </ItemGroup>
 
               <ItemGroup>
-                <ProjectReference Include="..\\{name}\\{name}.csproj" />
+                <ProjectReference Include="..\{projectFile}" />
               </ItemGroup>
 
             </Project>
@@ -186,26 +217,82 @@ public class DotnetAdapter : IAdapter
 
         File.WriteAllText(Path.Combine(testDir, $"{name}.Tests.csproj"), csprojContent);
 
-        var testContent = template == "webapi"
-            ? $"using Xunit;\n\nnamespace {name}.Tests;\n\npublic class ApiTests\n{{\n    [Fact]\n    public void Endpoint_Should_Be_Available()\n    {{\n        // TODO: Ajouter les tests de l'API\n        Assert.True(true);\n    }}\n}}\n"
-            : $"using Xunit;\n\nnamespace {name}.Tests;\n\npublic class BasicTests\n{{\n    [Fact]\n    public void Should_Work()\n    {{\n        // TODO: Ajouter les tests\n        Assert.True(true);\n    }}\n}}\n";
+        var testContent = $$"""
+            using Xunit;
 
-        File.WriteAllText(Path.Combine(testDir, $"BasicTests.cs"), testContent);
+            namespace {{SanitizeNamespace(name)}}.Tests;
+
+            public class BasicTests
+            {
+                [Fact]
+                public void Should_Work()
+                {
+                    // TODO: remplacer par un vrai test
+                    Assert.True(true);
+                }
+            }
+            """;
+
+        File.WriteAllText(Path.Combine(testDir, "BasicTests.cs"), testContent);
         ConsoleService.Debug($"Projet de tests {name}.Tests cree.");
+    }
+
+    private static void AddSolutionIfMissing(string outputDir, string name)
+    {
+        var sln = Path.Combine(outputDir, $"{name}.sln");
+        if (File.Exists(sln)) return;
+
+        var result = ProcessService
+            .RunResultAsync("dotnet", ["new", "sln", "-n", name, "-o", outputDir])
+            .GetAwaiter().GetResult();
+
+        if (!result.Success) return;
+
+        var projects = Directory.GetFiles(outputDir, "*.csproj", SearchOption.AllDirectories);
+        foreach (var project in projects)
+        {
+            ProcessService.RunResultAsync("dotnet", ["sln", sln, "add", project]).GetAwaiter().GetResult();
+        }
+
+        ConsoleService.Debug("Solution .sln generee.");
+    }
+
+    private static string SanitizeNamespace(string value)
+    {
+        var builder = new StringBuilder(value.Length);
+        foreach (var c in value)
+        {
+            if (char.IsLetterOrDigit(c) || c == '_' || c == '.')
+                builder.Append(c);
+            else
+                builder.Append('_');
+        }
+
+        var result = builder.ToString();
+        return string.IsNullOrEmpty(result) || char.IsDigit(result[0]) ? "_" + result : result;
     }
 
     private static string GetSdkVersion()
     {
         try
         {
-            var result = ProcessService.RunAsync("dotnet", "--version", streamOutput: false).GetAwaiter().GetResult();
-            var version = result.Output.Trim();
+            var result = ProcessService.RunResultAsync("dotnet", ["--version"])
+                .GetAwaiter().GetResult();
+
+            var version = result.StandardOutput.Trim();
             var parts = version.Split('.');
-            return parts.Length >= 2 ? $"{parts[0]}.{parts[1]}" : "9.0";
+
+            if (parts.Length >= 2 && int.TryParse(parts[0], out var major) && int.TryParse(parts[1], out var minor))
+            {
+                // Les images ne sont pas publiees pour chaque version de SDK : on utilise la version majeure/mineure.
+                return $"{major}.{minor}";
+            }
+
+            return "10.0";
         }
         catch
         {
-            return "9.0";
+            return "10.0";
         }
     }
 }

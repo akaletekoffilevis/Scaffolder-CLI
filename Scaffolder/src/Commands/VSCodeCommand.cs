@@ -192,7 +192,7 @@ Extension VS Code generee par Scaffolder.
       "type": "coreclr",
       "request": "launch",
       "preLaunchTask": "build",
-      "program": "${workspaceFolder}/bin/Debug/net9.0/scaffold.dll",
+      "program": "${workspaceFolder}/bin/Debug/net10.0/scaffold.dll",
       "args": [],
       "cwd": "${workspaceFolder}"
     }

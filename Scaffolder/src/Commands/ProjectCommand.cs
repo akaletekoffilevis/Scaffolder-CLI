@@ -119,9 +119,9 @@ public class ProjectCommand : Command
                 // Update target framework
                 if (content.Contains("net8.0"))
                 {
-                    content = content.Replace("net8.0", "net9.0");
+                    content = content.Replace("net8.0", "net10.0").Replace("net9.0", "net10.0");
                     File.WriteAllText(csproj, content);
-                    ConsoleService.Success($"  {Path.GetFileName(csproj)} : net8.0 -> net9.0");
+                    ConsoleService.Success($"{Path.GetFileName(csproj)} : net8.0 -> net10.0");
                 }
             }
             ConsoleService.Info("  dotnet restore...");

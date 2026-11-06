@@ -13,22 +13,22 @@ public class MixAdapter : IAdapter
     public async Task<(int ExitCode, string Message)> ScaffoldAsync(
         string name, string outputDir, string subTemplate, string? language)
     {
+        var parentDir = Directory.GetParent(outputDir)?.FullName ?? Environment.CurrentDirectory;
+        var dirName = new DirectoryInfo(outputDir).Name;
         var isPhoenix = subTemplate == "phoenix";
-        var cmd = isPhoenix ? $"phx.new {name}" : $"new {name}";
 
-        ConsoleService.Info($"  mix {cmd}");
+        string[] args = isPhoenix ? ["phx.new", dirName] : ["new", dirName];
+
+        ConsoleService.Info($"  mix {string.Join(' ', args)}");
         Console.WriteLine();
 
-        var result = await ProcessService.RunAsync(
-            "mix",
-            cmd,
-            workingDirectory: outputDir,
-            streamOutput: true
-        );
+        // mix nouveau projet cree lui-meme le dossier cible.
+        var result = await ProcessService.RunResultAsync(
+            "mix", args, workingDirectory: parentDir, streamOutput: true,
+            timeout: TimeSpan.FromMinutes(20));
 
-        if (result.ExitCode == 0)
-            return (0, $"Projet Elixir créé avec mix {cmd}");
-
-        return (result.ExitCode, result.Output);
+        return result.Success
+            ? (0, "Projet Elixir créé avec mix")
+            : (result.ExitCode, result.Output);
     }
 }

@@ -47,7 +47,7 @@ jobs:
 
       - uses: actions/setup-dotnet@v4
         with:
-          dotnet-version: '9.0'
+          dotnet-version: "10.0"
 
       - name: Install cross-compilation tools (linux-arm64)
         if: matrix.rid == 'linux-arm64'
@@ -67,7 +67,7 @@ jobs:
         if: runner.os != 'Windows'
         shell: bash
         run: |
-          cd bin/Release/net9.0/${{ matrix.rid }}/publish
+          cd bin/Release/net10.0/${{ matrix.rid }}/publish
           tar -czf ../../../../../scaffold-${{ matrix.rid }}.tar.gz scaffold
           ls -lh ../../../../../scaffold-${{ matrix.rid }}.tar.gz
 
@@ -75,7 +75,7 @@ jobs:
         if: runner.os == 'Windows'
         shell: bash
         run: |
-          cd bin/Release/net9.0/${{ matrix.rid }}/publish
+          cd bin/Release/net10.0/${{ matrix.rid }}/publish
           tar -czf ../../../../../scaffold-${{ matrix.rid }}.tar.gz scaffold.exe
           ls -lh ../../../../../scaffold-${{ matrix.rid }}.tar.gz
 

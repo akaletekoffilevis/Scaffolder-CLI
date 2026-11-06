@@ -1,5 +1,4 @@
 using System.CommandLine;
-using System.Diagnostics;
 using System.Threading.Tasks;
 using Scaffolder;
 using Scaffolder.Adapters;
@@ -112,6 +111,22 @@ public class NewCommand : Command
         Description = "Generer la config CI/CD"
     };
 
+    private readonly Option<bool> _listOpt = new("--list", ["-l"])
+    {
+        Description = "Liste les templates disponibles"
+    };
+
+    private readonly Option<bool> _forceOpt = new("--force", ["-f"])
+    {
+        Description = "Ecrase le dossier de sortie sans confirmation"
+    };
+
+    private readonly Option<string> _frameworkOpt = new("--framework")
+    {
+        Description = "Framework cible .NET (ex: net10.0) ou variante (ex: react-ts)",
+        Required = false
+    };
+
     public NewCommand() : base("new", "Crée un nouveau projet")
     {
         Aliases.Add("create");
@@ -130,6 +145,9 @@ public class NewCommand : Command
         Add(_archOpt);
         Add(_dockerOpt);
         Add(_ciOpt);
+        Add(_listOpt);
+        Add(_forceOpt);
+        Add(_frameworkOpt);
 
         this.SetAction((ParseResult pr) => HandleNew(pr));
     }
@@ -146,8 +164,16 @@ public class NewCommand : Command
         var arch = pr.GetValue(_archOpt);
         var docker = pr.GetValue(_dockerOpt);
         var ci = pr.GetValue(_ciOpt);
+        var force = pr.GetValue(_forceOpt);
+        var framework = pr.GetValue(_frameworkOpt);
 
-        ConsoleService.Verbose = verbose;
+        if (pr.GetValue(_listOpt))
+            return ShowTemplateList();
+
+        // --verbose global et --verbose local se cumulent (ne jamais ecraser AppOptions).
+        ConsoleService.Verbose |= verbose;
+        if (silent) ConsoleService.Quiet = true;
+
         var hasTemplate = !string.IsNullOrWhiteSpace(pr.GetValue(_templateOpt));
         var isInteractive = !hasTemplate && !useFav;
 
@@ -183,24 +209,44 @@ public class NewCommand : Command
             outputDir ??= Path.Combine(Directory.GetCurrentDirectory(), name);
         }
 
+        if (!IsValidProjectName(name))
+        {
+            ConsoleService.Error($"Nom de projet invalide : '{name}'.");
+            ConsoleService.Info("Utilise des lettres, chiffres, '-', '_' ou '.' (sans espace ni separateur de chemin).");
+            return 2;
+        }
+
+        if (!string.IsNullOrWhiteSpace(framework))
+            ConfigService.Set(ConfigService.Keys.Framework, framework);
+
         if (!silent) ConsoleService.WriteLine();
 
         if (dryRun)
         {
-            ShowDryRun(name, template, language, outputDir);
+            ShowDryRun(name, template, language, outputDir, auth, db, arch, framework);
             return 0;
         }
 
-        if (Directory.Exists(outputDir) && Directory.GetFiles(outputDir).Length > 0)
+        if (Directory.Exists(outputDir) && IsDirectoryNotEmpty(outputDir))
         {
-            var overwrite = silent || ConsoleService.Confirm(
-                "[yellow]Le dossier existe déjà. Écraser ?[/]", false);
-            if (!overwrite)
+            if (force)
+            {
+                BackupExisting(outputDir);
+            }
+            else if (silent)
+            {
+                ConsoleService.Error($"Le dossier '{outputDir}' n'est pas vide. Utilise --force pour l'ecraser.");
+                return 1;
+            }
+            else if (!ConsoleService.Confirm("[yellow]Le dossier existe déjà. Écraser ?[/]", false))
             {
                 ConsoleService.Warning("Opération annulée.");
                 return 1;
             }
-            BackupExisting(outputDir);
+            else
+            {
+                BackupExisting(outputDir);
+            }
         }
 
         if (template.Contains('+'))
@@ -216,8 +262,55 @@ public class NewCommand : Command
             }
         }
 
-        return GenerateAndFinish(silent, noGit, name, template, outputDir, language);
+        return GenerateAndFinish(silent, noGit, name, template, outputDir, language, auth, db, arch, docker, ci);
     }
+
+    private static bool IsValidProjectName(string? name)
+    {
+        if (string.IsNullOrWhiteSpace(name)) return false;
+        if (name is "." or "..") return false;
+        if (name.Length > 100) return false;
+        if (name.Contains(' ') || name.Contains('/') || name.Contains('\\')) return false;
+        return name.IndexOfAny(Path.GetInvalidFileNameChars()) < 0;
+    }
+
+    private static bool IsDirectoryNotEmpty(string dir)
+    {
+        try
+        {
+            return Directory.EnumerateFileSystemEntries(dir).Any();
+        }
+        catch (IOException)
+        {
+            return true;
+        }
+    }
+
+    private static int ShowTemplateList()
+    {
+        ConsoleService.MarkupLine("[bold cyan]Templates disponibles[/]");
+        ConsoleService.WriteLine();
+
+        ConsoleService.MarkupLine("[bold]Hello World[/]");
+        foreach (var lang in HelloLanguages)
+            ConsoleService.MarkupLine($"  [green]hello[/]  [gray]({Escape(lang)})[/]");
+
+        ConsoleService.WriteLine();
+
+        foreach (var adapter in Adapters)
+        {
+            var status = adapter.IsAvailable ? "" : " [red](outil non installe)[/]";
+            ConsoleService.MarkupLine($"[bold]{Escape(adapter.Name)}[/]{status} — {Escape(adapter.Description)}");
+            foreach (var sub in adapter.SubTemplates)
+                ConsoleService.MarkupLine($"  [green]{Escape(adapter.Name)} {Escape(sub)}[/]");
+            ConsoleService.WriteLine();
+        }
+
+        ConsoleService.Info("Composition : scaffold new --template dotnet+react");
+        ConsoleService.Info("Registry    : scaffold registry list");
+        return 0;
+    }
+
 
     private static string PickHelloLanguage()
     {
@@ -405,7 +498,9 @@ public class NewCommand : Command
         return allOk ? 0 : 1;
     }
 
-    private int GenerateAndFinish(bool silent, bool noGit, string name, string template, string outputDir, string? language)
+    private int GenerateAndFinish(
+        bool silent, bool noGit, string name, string template, string outputDir, string? language,
+        string? auth = null, string? db = null, string? arch = null, bool docker = false, bool ci = false)
     {
         var success = true;
         string? usedTemplate = null;
@@ -424,7 +519,10 @@ public class NewCommand : Command
 
         if (success)
         {
-            RunPostGenHooks(usedTemplate ?? template, outputDir, silent);
+            var effectiveTemplate = usedTemplate ?? template;
+
+            ApplyProjectOptions(effectiveTemplate, outputDir, name, auth, db, arch, docker, ci);
+            RunPostGenHooks(effectiveTemplate, outputDir, silent);
 
             if (!noGit)
                 GitService.InitWithSpinner(outputDir);
@@ -437,7 +535,7 @@ public class NewCommand : Command
                 ConsoleService.MarkupLine("[gray]  Pour commencer :[/]");
                 ConsoleService.MarkupLine($"    [green]cd[/] [cyan]{Escape(name)}[/]");
 
-                var runCmd = GetRunCommand(usedTemplate ?? template);
+                var runCmd = GetRunCommand(effectiveTemplate);
                 if (runCmd != null)
                     ConsoleService.MarkupLine($"    [green]{Escape(runCmd)}[/]");
 
@@ -452,13 +550,34 @@ public class NewCommand : Command
         return success ? 0 : 1;
     }
 
-    private void ShowDryRun(string name, string template, string? language, string outputDir)
+    /// <summary>Applique les options --auth/--db/--arch/--docker/--ci apres generation.</summary>
+    private static void ApplyProjectOptions(
+        string template, string outputDir, string name,
+        string? auth, string? db, string? arch, bool docker, bool ci)
+    {
+        var isDotnet = Adapters.OfType<DotnetAdapter>().Any(a =>
+            a.Name == template || a.SubTemplates.Contains(template));
+
+        if (isDotnet)
+            DotnetProjectOptions.Apply(outputDir, name, auth, db, arch, docker);
+
+        if (ci)
+            CiGenerator.WriteForProject(outputDir, LanguageDetector.Detect(outputDir));
+    }
+
+    private void ShowDryRun(
+        string name, string template, string? language, string outputDir,
+        string? auth = null, string? db = null, string? arch = null, string? framework = null)
     {
         ConsoleService.Info("PREVISUALISATION (--dry-run) :");
         ConsoleService.SummaryLine("Template", template);
         ConsoleService.SummaryLine("Nom", name);
         ConsoleService.SummaryLine("Langage", language ?? "auto");
         ConsoleService.SummaryLine("Dossier", outputDir);
+        if (!string.IsNullOrWhiteSpace(framework)) ConsoleService.SummaryLine("Framework", framework);
+        if (!string.IsNullOrWhiteSpace(auth) && auth != "none") ConsoleService.SummaryLine("Auth", auth);
+        if (!string.IsNullOrWhiteSpace(db) && db != "none") ConsoleService.SummaryLine("BDD", db);
+        if (!string.IsNullOrWhiteSpace(arch) && arch != "mvc") ConsoleService.SummaryLine("Architecture", arch);
         ConsoleService.Info("Aucun fichier genere. Retire --dry-run pour generer.");
     }
 
@@ -476,10 +595,12 @@ public class NewCommand : Command
     private static (int ExitCode, string Message, string? UsedTemplate) GenerateProjectCore(
         string name, string template, string outputDir, string? language)
     {
-        Directory.CreateDirectory(outputDir);
-
+        // Les outils natifs (dotnet new, npm create, cargo new, flutter create...)
+        // creent eux-memes leur dossier : on ne le pre-cree pas.
+        // Seuls les generateurs internes (hello, registry) ont besoin du dossier.
         if (template == "hello")
         {
+            Directory.CreateDirectory(outputDir);
             GenerateHelloWorld(name, outputDir, language);
             return (0, "", "hello");
         }
@@ -494,13 +615,16 @@ public class NewCommand : Command
             {
                 ConsoleService.Warning($"L'outil requis pour '{adapter.Name}' n'est pas installe.");
                 ConsoleService.Info("Utilisation du template Hello World a la place.");
+                Directory.CreateDirectory(outputDir);
                 GenerateHelloWorld(name, outputDir, language);
                 return (42, "Fallback vers hello (outil requis non installe)", "hello");
             }
-            var result = adapter.ScaffoldAsync(name, outputDir, template, language).GetAwaiter().GetResult();
+            var subTemplate = template == adapter.Name ? "" : template;
+            var result = adapter.ScaffoldAsync(name, outputDir, subTemplate, language).GetAwaiter().GetResult();
             return (result.ExitCode, result.Message, adapter.Name);
         }
 
+        Directory.CreateDirectory(outputDir);
         if (TryGenerateFromRegistry(template, outputDir, name))
             return (0, "", template);
 
@@ -584,7 +708,7 @@ public class NewCommand : Command
             case "c#":
                 WriteFile(outputDir, "Program.cs", "Console.WriteLine(\"Hello, {0}!\");\n", name);
                 WriteFile(outputDir, $"{name}.csproj",
-                    "<Project Sdk=\"Microsoft.NET.Sdk\"><PropertyGroup><OutputType>Exe</OutputType><TargetFramework>net9.0</TargetFramework><ImplicitUsings>enable</ImplicitUsings><Nullable>enable</Nullable></PropertyGroup></Project>\n");
+                    "<Project Sdk=\"Microsoft.NET.Sdk\"><PropertyGroup><OutputType>Exe</OutputType><TargetFramework>net10.0</TargetFramework><ImplicitUsings>enable</ImplicitUsings><Nullable>enable</Nullable></PropertyGroup></Project>\n");
                 WriteReadme(outputDir, name, "C#", "dotnet run");
                 break;
             case "rust":
@@ -749,30 +873,6 @@ public class NewCommand : Command
         ConsoleService.Debug($"Sauvegarde du dossier existant vers {backupDir}");
         Directory.Move(outputDir, backupDir);
         ConsoleService.Warning($"Dossier existant sauvegarde : {backupDir}");
-    }
-
-    private static bool IsPortAvailable(int port)
-    {
-        try
-        {
-            var psi = new ProcessStartInfo
-            {
-                FileName = "ss",
-                Arguments = $"-tlnp sport = :{port}",
-                RedirectStandardOutput = true,
-                UseShellExecute = false,
-                CreateNoWindow = true
-            };
-            using var proc = new Process { StartInfo = psi };
-            proc.Start();
-            var output = proc.StandardOutput.ReadToEnd();
-            proc.WaitForExit(2000);
-            return !output.Contains($"sport = :{port}");
-        }
-        catch
-        {
-            return true;
-        }
     }
 
     private static string Escape(string text)

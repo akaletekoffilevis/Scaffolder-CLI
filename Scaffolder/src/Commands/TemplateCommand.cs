@@ -512,8 +512,8 @@ public class TemplateCommand : Command
             ["nuxt"] = [("vue", "3.x")],
             ["svelte"] = [("vite", null)],
             ["solid"] = [("vite", null)],
-            ["blazor"] = [("dotnet", "9.0")],
-            ["maui"] = [("dotnet", "9.0")],
+            ["blazor"] = [("dotnet", "10.0")],
+            ["maui"] = [("dotnet", "10.0")],
         };
 
         return deps.TryGetValue(template, out var d) ? d : [];

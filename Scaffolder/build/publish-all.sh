@@ -2,7 +2,7 @@
 set -euo pipefail
 
 ROOT="$(cd "$(dirname "$0")/.." && pwd)"
-BIN="$ROOT/bin/Release/net9.0"
+BIN="$ROOT/bin/Release/net10.0"
 
 echo "=============================================="
 echo "  Scaffolder - Multi-OS AOT Build"
@@ -75,4 +75,4 @@ ls -lh "$BIN"/*/publish/scaffold* 2>/dev/null || true
 echo ""
 
 echo "To test locally:"
-echo "  ./bin/Release/net9.0/linux-x64/publish/scaffold --help"
+echo "  ./bin/Release/net10.0/linux-x64/publish/scaffold --help"
