@@ -11,9 +11,12 @@
     <AssemblyName>scaffold</AssemblyName>
     <Description>CLI universel pour générer des projets dans tous les langages</Description>
     <Version>2.1.0</Version>
+    <InformationalVersion>2.1.0</InformationalVersion>
     <StripSymbols>true</StripSymbols>
     <OptimizationPreference>Speed</OptimizationPreference>
     <IlcOptimizationPreference>Speed</IlcOptimizationPreference>
+    <IncludeSourceRevisionInInformationalVersion>false</IncludeSourceRevisionInInformationalVersion>
+    <DisableImplicitSourceLink>true</DisableImplicitSourceLink>
   </PropertyGroup>
 
   <ItemGroup>

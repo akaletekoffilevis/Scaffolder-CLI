@@ -5,10 +5,6 @@ namespace Scaffolder.Services;
 
 public static class ConfigService
 {
-    private static readonly string ConfigDir = Path.Combine(
-        Environment.GetFolderPath(Environment.SpecialFolder.UserProfile), ".scaffolder");
-    private static readonly string ConfigFile = Path.Combine(ConfigDir, "config.json");
-
     public static class Keys
     {
         public const string ApiKey = "apiKey";
@@ -17,47 +13,39 @@ public static class ConfigService
         public const string Theme = "theme";
         public const string Experience = "experience";
         public const string FirstRun = "firstRun";
+        public const string Fav = "fav";
+        public const string Profile = "profile";
+        public const string RegistryUrl = "registry.url";
+        public const string BugEmail = "bugEmail";
+        public const string Author = "author";
+        public const string Company = "company";
+        public const string Framework = "framework";
+        public const string License = "license";
+        public const string DefaultAuth = "defaultAuth";
+        public const string DefaultDb = "defaultDb";
+        public const string DefaultArch = "defaultArch";
+
+        public static string LockKey(string template) => $"lock.{template}";
     }
 
     public static string? Get(string key)
     {
-        if (!ReadConfig(out var dict))
-            return null;
-
-        return dict.TryGetValue(key, out var val) ? val : null;
+        return DatabaseService.GetValue("settings", key);
     }
 
     public static void Set(string key, string value)
     {
-        if (!ReadConfig(out var dict))
-            dict = new Dictionary<string, string>();
-
-        dict[key] = value;
-        SaveConfig(dict);
+        DatabaseService.SetValue("settings", key, value);
     }
 
-    private static bool ReadConfig(out Dictionary<string, string> dict)
+    public static bool ReadConfig(out Dictionary<string, string> dict)
     {
-        dict = [];
-        if (!File.Exists(ConfigFile))
-            return false;
-
-        try
-        {
-            var json = File.ReadAllText(ConfigFile);
-            dict = JsonSerializer.Deserialize(json, JsonContext.Default.DictionaryStringString) ?? [];
-            return true;
-        }
-        catch
-        {
-            return false;
-        }
+        dict = DatabaseService.GetSection("settings");
+        return dict.Count > 0;
     }
 
-    private static void SaveConfig(Dictionary<string, string> dict)
+    public static void SaveConfig(Dictionary<string, string> dict)
     {
-        Directory.CreateDirectory(ConfigDir);
-        var json = JsonSerializer.Serialize(dict, JsonContext.Default.DictionaryStringString);
-        File.WriteAllText(ConfigFile, json);
+        DatabaseService.SetSection("settings", dict);
     }
 }

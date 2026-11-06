@@ -88,4 +88,27 @@ public static class ProcessService
             return false;
         }
     }
+
+    public static string GetScaffoldBinaryPath()
+    {
+        var binaryName = OperatingSystem.IsWindows() ? "scaffold.exe" : "scaffold";
+
+        // Try Environment.ProcessPath first (works when running as installed binary)
+        if (!string.IsNullOrEmpty(Environment.ProcessPath) && File.Exists(Environment.ProcessPath))
+            return Environment.ProcessPath;
+
+        // Try to find via PATH
+        if (CommandExists(binaryName))
+        {
+            var result = RunAsync(
+                OperatingSystem.IsWindows() ? "where" : "which", binaryName,
+                streamOutput: false).GetAwaiter().GetResult();
+            var path = result.Output.Trim();
+            if (!string.IsNullOrEmpty(path) && File.Exists(path))
+                return path;
+        }
+
+        // Fallback: return the binary name and let the caller rely on PATH resolution
+        return binaryName;
+    }
 }

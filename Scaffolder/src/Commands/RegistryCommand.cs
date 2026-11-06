@@ -235,7 +235,7 @@ public class RegistryCommand : Command
         ConsoleService.Info("  scaffold registry install <nom>");
 
         // Try remote registry
-        var registryUrl = ConfigService.Get("registry.url");
+        var registryUrl = ConfigService.Get(ConfigService.Keys.RegistryUrl);
         if (!string.IsNullOrWhiteSpace(registryUrl))
         {
             Console.WriteLine();

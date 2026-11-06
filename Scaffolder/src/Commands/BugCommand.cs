@@ -20,15 +20,15 @@ public class BugCommand : Command
 
     private static int Handle(string? description)
     {
-        var email = "koffilevis21@gmail.com";
+        var email = ConfigService.Get(ConfigService.Keys.BugEmail) ?? "koffilevis21@gmail.com";
         var subject = Uri.EscapeDataString("[Scaffolder Bug] Rapport");
         var body = Uri.EscapeDataString(
             $"Description : {description ?? "(non fournie)"}\n\n" +
-            $"--- Informations système ---\n" +
+            $"--- Informations systeme ---\n" +
             $"OS: {RuntimeInformation.OSDescription}\n" +
             $"Architecture: {RuntimeInformation.OSArchitecture}\n" +
             $".NET: {RuntimeInformation.FrameworkDescription}\n" +
-            $"Version: 2.1.0\n");
+            $"Version: {UpdateService.CurrentVersion}\n");
 
         var mailto = $"mailto:{email}?subject={subject}&body={body}";
 

@@ -88,8 +88,9 @@ projects:
                 if (p.Features.Contains("no-git"))
                     args += " --no-git";
 
-                // Execute scaffold new
-                var result = ProcessService.RunAsync("dotnet", $"run --project src/Scaffolder.csproj -- {args}",
+                // Execute scaffold new using the installed binary
+                var scaffoldBin = ProcessService.GetScaffoldBinaryPath();
+                var result = ProcessService.RunAsync(scaffoldBin, $"new {args}",
                     Directory.GetCurrentDirectory()).Result;
 
                 if (result.ExitCode == 0)

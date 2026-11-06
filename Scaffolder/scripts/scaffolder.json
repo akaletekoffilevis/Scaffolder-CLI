@@ -1,0 +1,32 @@
+{
+  "version": "2.1.0",
+  "description": "CLI universel pour générer des projets dans tous les langages (C#, Python, JS, Rust, Go, etc.)",
+  "homepage": "https://github.com/akaletekoffilevis/Scaffolder-CLI",
+  "license": "MIT",
+  "architecture": {
+    "64bit": {
+      "url": "https://github.com/akaletekoffilevis/Scaffolder-CLI/releases/download/v2.1.0/scaffold-win-x64.zip",
+      "hash": "REPLACE_WITH_ACTUAL_SHA256",
+      "extract_dir": ""
+    },
+    "arm64": {
+      "url": "https://github.com/akaletekoffilevis/Scaffolder-CLI/releases/download/v2.1.0/scaffold-win-arm64.zip",
+      "hash": "REPLACE_WITH_ACTUAL_SHA256",
+      "extract_dir": ""
+    }
+  },
+  "bin": "scaffold.exe",
+  "checkver": {
+    "github": "https://github.com/akaletekoffilevis/Scaffolder-CLI"
+  },
+  "autoupdate": {
+    "architecture": {
+      "64bit": {
+        "url": "https://github.com/akaletekoffilevis/Scaffolder-CLI/releases/download/v$version/scaffold-win-x64.zip"
+      },
+      "arm64": {
+        "url": "https://github.com/akaletekoffilevis/Scaffolder-CLI/releases/download/v$version/scaffold-win-arm64.zip"
+      }
+    }
+  }
+}

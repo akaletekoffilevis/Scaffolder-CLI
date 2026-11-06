@@ -1,0 +1,139 @@
+name: Build & Release
+
+on:
+  push:
+    tags:
+      - 'v*'
+  workflow_dispatch:
+    inputs:
+      version:
+        description: 'Version tag (ex: v2.1.0)'
+        required: true
+
+env:
+  DOTNET_VERSION: '9.0.x'
+
+jobs:
+  build:
+    name: Build ${{ matrix.rid }}
+    runs-on: ${{ matrix.os }}
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - os: ubuntu-latest
+            rid: linux-x64
+            archive: tar.gz
+          - os: ubuntu-latest
+            rid: linux-musl-x64
+            archive: tar.gz
+          - os: ubuntu-latest
+            rid: linux-arm64
+            archive: tar.gz
+          - os: windows-latest
+            rid: win-x64
+            archive: zip
+          - os: windows-latest
+            rid: win-arm64
+            archive: zip
+          - os: macos-latest
+            rid: osx-x64
+            archive: tar.gz
+          - os: macos-latest
+            rid: osx-arm64
+            archive: tar.gz
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Setup .NET
+        uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: ${{ env.DOTNET_VERSION }}
+
+      - name: Restore
+        run: dotnet restore Scaffolder/Scaffolder.csproj
+
+      - name: Build & Publish (AOT)
+        run: |
+          dotnet publish Scaffolder/Scaffolder.csproj \
+            -c Release \
+            -r ${{ matrix.rid }} \
+            --self-contained true \
+            -p:PublishAot=true \
+            -p:StripSymbols=true \
+            -p:InvariantGlobalization=true \
+            -o ./publish/${{ matrix.rid }}
+
+      - name: Create Archive
+        run: |
+          cd ./publish/${{ matrix.rid }}
+          if [ "${{ matrix.archive }}" = "tar.gz" ]; then
+            tar -czf ../../scaffold-${{ matrix.rid }}.tar.gz scaffold*
+          else
+            7z a ../../scaffold-${{ matrix.rid }}.zip scaffold*
+          fi
+
+      - name: Generate Checksums
+        run: |
+          sha256sum scaffold-${{ matrix.rid }}.${{ matrix.archive }} >> checksums.txt
+
+      - name: Upload Artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: scaffold-${{ matrix.rid }}
+          path: |
+            scaffold-${{ matrix.rid }}.${{ matrix.archive }}
+            checksums.txt
+          retention-days: 30
+
+  release:
+    name: Create Release
+    needs: build
+    runs-on: ubuntu-latest
+    if: startsWith(github.ref, 'refs/tags/v')
+    permissions:
+      contents: write
+    steps:
+      - name: Download All Artifacts
+        uses: actions/download-artifact@v4
+        with:
+          path: ./artifacts
+
+      - name: Flatten Artifacts
+        run: |
+          cd ./artifacts
+          find . -name "scaffold-*.tar.gz" -o -name "scaffold-*.zip" | while read f; do
+            cp "$f" "${f##*/}"
+          done
+          find . -name "checksums.txt" -exec cat {} \; > checksums.txt
+
+      - name: Create Release
+        uses: softprops/action-gh-release@v2
+        with:
+          files: |
+            scaffold-*.tar.gz
+            scaffold-*.zip
+            checksums.txt
+          generate_release_notes: true
+          draft: false
+          prerelease: false
+
+      - name: Update Homebrew Formula
+        if: github.repository == 'akaletekoffilevis/homebrew-tap'
+        uses: actions/checkout@v4
+        with:
+          repository: akaletekoffilevis/homebrew-tap
+          token: ${{ secrets.GITHUB_TOKEN }}
+          path: ./homebrew-tap
+
+      - name: Update Scoop Manifest
+        if: github.repository == 'akaletekoffilevis/scoop-scaffold'
+        uses: actions/checkout@v4
+        with:
+          repository: akaletekoffilevis/scoop-scaffold
+          token: ${{ secrets.GITHUB_TOKEN }}
+          path: ./scoop-scaffold

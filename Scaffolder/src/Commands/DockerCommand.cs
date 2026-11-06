@@ -190,6 +190,7 @@ volumes:
 
     public static void GenerateDockerfile(string cwd, string type = "web")
     {
+        type = type ?? throw new ArgumentNullException(nameof(type));
         type = type.ToLowerInvariant();
         var dockerfile = type == "api" ? GenerateApiDockerfile() : GenerateWebDockerfile();
         File.WriteAllText(Path.Combine(cwd, "Dockerfile"), dockerfile.TrimStart('\n'));

@@ -7,10 +7,6 @@ namespace Scaffolder.Commands;
 
 public class ConfigCommand : Command
 {
-    private static readonly string ConfigDir = Path.Combine(
-        Environment.GetFolderPath(Environment.SpecialFolder.UserProfile), ".scaffolder");
-    private static readonly string ConfigFile = Path.Combine(ConfigDir, "config.json");
-
     public ConfigCommand() : base("config", "Gère la configuration de Scaffolder")
     {
         var initCmd = new Command("init", "Initialise la configuration");
@@ -68,22 +64,16 @@ public class ConfigCommand : Command
 
     private static int HandleInit()
     {
-        Directory.CreateDirectory(ConfigDir);
-        var defaults = """
-        {
-          "firstRun": "false",
-          "theme": "default",
-          "experience": "beginner"
-        }
-        """;
-        File.WriteAllText(ConfigFile, defaults);
-        ConsoleService.Success("Configuration initialisee.");
+        DatabaseService.Initialize();
+        ConsoleService.Success("Base de donnees chiffree initialisee.");
+        ConsoleService.Info("  Fichier : ~/.scaffolder/scaffolder.scaffolder-cli");
+        ConsoleService.Info("  Chiffrement : AES-256 (cle derivee de la machine)");
         return 0;
     }
 
     private static int HandleGet(string? key)
     {
-        if (!ReadConfig(out var dict))
+        if (!ConfigService.ReadConfig(out var dict))
             return 1;
 
         if (key != null && dict.TryGetValue(key, out var val))
@@ -106,31 +96,21 @@ public class ConfigCommand : Command
             return 1;
         }
 
-        if (!ReadConfig(out var dict))
-            return 1;
-
-        dict[key] = value;
-        SaveConfig(dict);
+        ConfigService.Set(key, value);
         ConsoleService.Success($"  {key} = {value}");
         return 0;
     }
 
     private static int HandleReset()
     {
-        if (File.Exists(ConfigFile))
-            File.Delete(ConfigFile);
-
-        HandleInit();
-        ConsoleService.Success("Configuration reinitialisee.");
+        DatabaseService.Reset();
+        ConsoleService.Success("Configuration et base reinitialisees.");
         return 0;
     }
 
     private static int HandleProfile()
     {
-        if (!ReadConfig(out var dict))
-            dict = [];
-
-        var current = dict.TryGetValue("profile", out var p) ? p : "default";
+        var current = ConfigService.Get(ConfigService.Keys.Profile) ?? "default";
 
         ConsoleService.Info($"Profil actuel : {current}");
         Console.WriteLine();
@@ -157,13 +137,13 @@ public class ConfigCommand : Command
             var imported = JsonSerializer.Deserialize(
                 File.ReadAllText(file.FullName), JsonContext.Default.DictionaryStringString) ?? [];
 
-            if (!ReadConfig(out var current))
+            if (!ConfigService.ReadConfig(out var current))
                 current = [];
 
             foreach (var (k, v) in imported)
                 current[k] = v;
 
-            SaveConfig(current);
+            ConfigService.SaveConfig(current);
             ConsoleService.Success($"Configuration importee depuis {file.Name} ({imported.Count} valeurs).");
             return 0;
         }
@@ -176,7 +156,7 @@ public class ConfigCommand : Command
 
     private static int HandleExport(FileInfo? file)
     {
-        if (!ReadConfig(out var dict))
+        if (!ConfigService.ReadConfig(out var dict))
             return 1;
 
         var exportPath = file?.FullName ?? Path.Combine(Directory.GetCurrentDirectory(), "scaffold-config.json");
@@ -184,34 +164,5 @@ public class ConfigCommand : Command
         File.WriteAllText(exportPath, json);
         ConsoleService.Success($"Configuration exportee vers {exportPath}");
         return 0;
-    }
-
-    private static bool ReadConfig(out Dictionary<string, string> dict)
-    {
-        dict = [];
-        if (!File.Exists(ConfigFile))
-        {
-            ConsoleService.Warning("Aucune configuration trouvee. Lance 'scaffold config init'.");
-            return false;
-        }
-
-        try
-        {
-            var json = File.ReadAllText(ConfigFile);
-            dict = JsonSerializer.Deserialize(json, JsonContext.Default.DictionaryStringString) ?? [];
-            return true;
-        }
-        catch
-        {
-            ConsoleService.Warning("Configuration corrompue. Lance 'scaffold config reset'.");
-            return false;
-        }
-    }
-
-    private static void SaveConfig(Dictionary<string, string> dict)
-    {
-        Directory.CreateDirectory(ConfigDir);
-        var json = JsonSerializer.Serialize(dict, JsonContext.Default.DictionaryStringString);
-        File.WriteAllText(ConfigFile, json);
     }
 }

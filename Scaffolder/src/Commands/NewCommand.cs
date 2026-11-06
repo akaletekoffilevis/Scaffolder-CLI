@@ -23,13 +23,16 @@ public class NewCommand : Command
         new SwiftAdapter(),
         new ZigAdapter(),
         new MixAdapter(),
-        new CabalAdapter()
+        new CabalAdapter(),
+        new ScalaAdapter(),
+        new CrystalAdapter()
     ];
 
     private static readonly string[] HelloLanguages =
     [
         "python", "javascript", "typescript", "c#", "rust", "go",
-        "ruby", "php", "dart", "swift", "kotlin", "java", "zig"
+        "ruby", "php", "dart", "swift", "kotlin", "java", "zig",
+        "scala", "elixir", "crystal"
     ];
 
     private readonly Option<string> _nameOpt = new("--name")
@@ -81,8 +84,38 @@ public class NewCommand : Command
         Description = "Utilise le template favori (configuré avec scaffold config set fav <template>)"
     };
 
+    private readonly Option<string> _authOpt = new("--auth")
+    {
+        Description = "Type d'authentification (none, jwt, identity)",
+        Required = false
+    };
+
+    private readonly Option<string> _dbOpt = new("--db")
+    {
+        Description = "Base de donnees (sqlite, sqlserver, postgresql, none)",
+        Required = false
+    };
+
+    private readonly Option<string> _archOpt = new("--arch")
+    {
+        Description = "Architecture (clean, mvc, minimal)",
+        Required = false
+    };
+
+    private readonly Option<bool> _dockerOpt = new("--docker")
+    {
+        Description = "Generer le Dockerfile"
+    };
+
+    private readonly Option<bool> _ciOpt = new("--ci")
+    {
+        Description = "Generer la config CI/CD"
+    };
+
     public NewCommand() : base("new", "Crée un nouveau projet")
     {
+        Aliases.Add("create");
+
         Add(_nameOpt);
         Add(_templateOpt);
         Add(_languageOpt);
@@ -92,6 +125,11 @@ public class NewCommand : Command
         Add(_noGitOpt);
         Add(_verboseOpt);
         Add(_favOpt);
+        Add(_authOpt);
+        Add(_dbOpt);
+        Add(_archOpt);
+        Add(_dockerOpt);
+        Add(_ciOpt);
 
         this.SetAction((ParseResult pr) => HandleNew(pr));
     }
@@ -103,6 +141,11 @@ public class NewCommand : Command
         var noGit = pr.GetValue(_noGitOpt);
         var verbose = pr.GetValue(_verboseOpt);
         var useFav = pr.GetValue(_favOpt);
+        var auth = pr.GetValue(_authOpt);
+        var db = pr.GetValue(_dbOpt);
+        var arch = pr.GetValue(_archOpt);
+        var docker = pr.GetValue(_dockerOpt);
+        var ci = pr.GetValue(_ciOpt);
 
         ConsoleService.Verbose = verbose;
         var hasTemplate = !string.IsNullOrWhiteSpace(pr.GetValue(_templateOpt));
@@ -128,7 +171,7 @@ public class NewCommand : Command
 
         if (isInteractive)
         {
-            (name, template, language) = RunInteractiveWizard();
+            (name, template, language) = RunInteractiveWizard(auth, db, arch);
             if (string.IsNullOrEmpty(template))
                 return 0;
             outputDir ??= Path.Combine(Directory.GetCurrentDirectory(), name);
@@ -184,14 +227,16 @@ public class NewCommand : Command
         ).ToLowerInvariant();
     }
 
-    private (string name, string template, string? language) RunInteractiveWizard()
+    private (string name, string template, string? language) RunInteractiveWizard(
+        string? defaultAuth = null, string? defaultDb = null, string? defaultArch = null)
     {
+        var totalSteps = 6;
         ConsoleService.MarkupLine("[bold yellow]\u26a1  Assistant de création de projet[/]");
         ConsoleService.MarkupLine("[gray]  Suis les étapes pour créer ton projet.[/]");
         ConsoleService.KeyboardHint();
         ConsoleService.WriteLine();
 
-        ConsoleService.StepHeader(1, 4, "Nom du projet");
+        ConsoleService.StepHeader(1, totalSteps, "Nom du projet");
         var name = ConsoleService.Prompt(
             "  [white]\u2714[/] Nom du projet :",
             "mon-projet",
@@ -205,7 +250,7 @@ public class NewCommand : Command
             errorMsg: "Nom invalide. Utilise uniquement des lettres, chiffres et tirets."
         );
 
-        ConsoleService.StepHeader(2, 4, "Type de projet");
+        ConsoleService.StepHeader(2, totalSteps, "Type de projet");
         ConsoleService.KeyboardHint();
         var category = ConsoleService.Select(
             "  [white]\u2714[/] Choisis un type :",
@@ -219,7 +264,7 @@ public class NewCommand : Command
         {
             case "Application Hello World":
                 template = "hello";
-                ConsoleService.StepHeader(3, 4, "Langage");
+                ConsoleService.StepHeader(3, totalSteps, "Langage");
                 ConsoleService.KeyboardHint();
                 language = PickHelloLanguage();
                 break;
@@ -238,12 +283,40 @@ public class NewCommand : Command
                 break;
         }
 
-        ConsoleService.StepHeader(3, 4, "Recapitulatif");
+        var authChoice = defaultAuth;
+        var dbChoice = defaultDb;
+        var archChoice = defaultArch;
+
+        if (template != "hello" && template != "stack")
+        {
+            ConsoleService.StepHeader(4, totalSteps, "Configuration");
+            ConsoleService.KeyboardHint();
+            authChoice = authChoice ?? ConsoleService.Select(
+                "  [white]\u2714[/] Authentification :",
+                ["none", "jwt", "identity"]
+            );
+            dbChoice = dbChoice ?? ConsoleService.Select(
+                "  [white]\u2714[/] Base de donnees :",
+                ["none", "sqlite", "sqlserver", "postgresql"]
+            );
+            archChoice = archChoice ?? ConsoleService.Select(
+                "  [white]\u2714[/] Architecture :",
+                ["mvc", "clean", "minimal"]
+            );
+        }
+
+        ConsoleService.StepHeader(template == "hello" || template == "stack" ? 3 : 5, totalSteps, "Recapitulatif");
         ConsoleService.WriteLine();
         ConsoleService.SummaryLine("Projet", name);
         ConsoleService.SummaryLine("Template", template);
         if (language != null)
             ConsoleService.SummaryLine("Langage", language);
+        if (authChoice != null && authChoice != "none")
+            ConsoleService.SummaryLine("Auth", authChoice);
+        if (dbChoice != null && dbChoice != "none")
+            ConsoleService.SummaryLine("BDD", dbChoice);
+        if (archChoice != null && archChoice != "mvc")
+            ConsoleService.SummaryLine("Architecture", archChoice);
         ConsoleService.SummaryLine("Dossier", Path.Combine(Directory.GetCurrentDirectory(), name));
         ConsoleService.WriteLine();
 
@@ -323,7 +396,7 @@ public class NewCommand : Command
 
         if (allOk)
         {
-            if (!noGit) GitInit(outputDir);
+            if (!noGit) GitService.InitWithSpinner(outputDir);
             ConsoleService.Success($"Projet composé '{name}' créé avec succès !");
             ConsoleService.Info($"  {outputDir}");
             ConsoleService.Info($"  Templates : {string.Join(", ", used)}");
@@ -354,7 +427,7 @@ public class NewCommand : Command
             RunPostGenHooks(usedTemplate ?? template, outputDir, silent);
 
             if (!noGit)
-                GitInit(outputDir);
+                GitService.InitWithSpinner(outputDir);
 
             if (!silent)
             {
@@ -386,26 +459,12 @@ public class NewCommand : Command
         ConsoleService.SummaryLine("Nom", name);
         ConsoleService.SummaryLine("Langage", language ?? "auto");
         ConsoleService.SummaryLine("Dossier", outputDir);
-        ConsoleService.Info("Aucun fichier généré. Retire --dry-run pour générer.");
+        ConsoleService.Info("Aucun fichier genere. Retire --dry-run pour generer.");
     }
 
     private static string? GetFavTemplate()
     {
-        var configDir = Path.Combine(
-            Environment.GetFolderPath(Environment.SpecialFolder.UserProfile), ".scaffolder");
-        var configFile = Path.Combine(configDir, "config.json");
-        if (File.Exists(configFile))
-        {
-            try
-            {
-                var json = System.Text.Json.JsonSerializer.Deserialize(
-                    File.ReadAllText(configFile), JsonContext.Default.DictionaryStringString);
-                if (json != null && json.TryGetValue("fav", out var fav))
-                    return fav;
-            }
-            catch { }
-        }
-        return null;
+        return ConfigService.Get(ConfigService.Keys.Fav);
     }
 
     public static (int ExitCode, string Message, string? UsedTemplate) GenerateProjectStatic(
@@ -452,9 +511,7 @@ public class NewCommand : Command
 
     private static bool TryGenerateFromRegistry(string template, string outputDir, string name)
     {
-        var registryDir = Path.Combine(
-            Environment.GetFolderPath(Environment.SpecialFolder.UserProfile),
-            ".scaffolder", "registry", template);
+        var registryDir = Paths.GetRegistryTemplateDir(template);
 
         if (!Directory.Exists(registryDir))
             return false;
@@ -527,7 +584,7 @@ public class NewCommand : Command
             case "c#":
                 WriteFile(outputDir, "Program.cs", "Console.WriteLine(\"Hello, {0}!\");\n", name);
                 WriteFile(outputDir, $"{name}.csproj",
-                    "<Project Sdk=\"Microsoft.NET.Sdk\"><PropertyGroup><OutputType>Exe</OutputType><TargetFramework>net9.0</TargetFramework></PropertyGroup></Project>\n");
+                    "<Project Sdk=\"Microsoft.NET.Sdk\"><PropertyGroup><OutputType>Exe</OutputType><TargetFramework>net9.0</TargetFramework><ImplicitUsings>enable</ImplicitUsings><Nullable>enable</Nullable></PropertyGroup></Project>\n");
                 WriteReadme(outputDir, name, "C#", "dotnet run");
                 break;
             case "rust":
@@ -573,6 +630,33 @@ public class NewCommand : Command
                 WriteFile(outputDir, "main.zig",
                     "const std = @import(\"std\");\n\npub fn main() !void {{\n    std.debug.print(\"Hello, {0}!\\n\", .{{}});\n}}\n", name);
                 WriteReadme(outputDir, name, "Zig", "zig run main.zig");
+                break;
+            case "scala":
+                Directory.CreateDirectory(Path.Combine(outputDir, "src", "main", "scala"));
+                WriteFile(Path.Combine(outputDir, "src", "main", "scala"), "Main.scala",
+                    "@main def hello() = println(\"Hello, {0}!\")\n", name);
+                WriteFile(outputDir, "build.sbt",
+                    "name := \"{0}\"\nversion := \"0.1.0\"\nscalaVersion := \"3.4.0\"\n", name);
+                WriteReadme(outputDir, name, "Scala", "sbt run");
+                break;
+            case "elixir":
+                WriteFile(outputDir, "main.exs",
+                    "IO.puts(\"Hello, {0}!\")\n", name);
+                var mixExs = $"defmodule {name}.MixProject do\n  use Mix.Project\n\n" +
+                    "  def project do\n" +
+                    $"    [app: :{name.ToLowerInvariant().Replace("-", "_")}, version: \"0.1.0\", elixir: \"~> 1.16\"]\n" +
+                    "  end\n\n  def application do\n" +
+                    "    [extra_applications: [:logger]]\n  end\nend\n";
+                File.WriteAllText(Path.Combine(outputDir, "mix.exs"), mixExs);
+                WriteReadme(outputDir, name, "Elixir", "elixir main.exs");
+                break;
+            case "crystal":
+                Directory.CreateDirectory(Path.Combine(outputDir, "src"));
+                WriteFile(Path.Combine(outputDir, "src"), $"{name.Replace("-", "_")}.cr",
+                    "puts \"Hello, {0}!\"\n", name);
+                WriteFile(outputDir, "shard.yml",
+                    "name: {0}\nversion: 0.1.0\n", name);
+                WriteReadme(outputDir, name, "Crystal", $"crystal run src/{name.Replace("-", "_")}.cr");
                 break;
             default:
                 ConsoleService.Error($"Langage '{lang}' non supporté.");
@@ -689,44 +773,6 @@ public class NewCommand : Command
         {
             return true;
         }
-    }
-
-    private static void GitInit(string outputDir)
-    {
-        ConsoleService.ShowSpinner(
-            "  Initialisation du depot Git...",
-            async () =>
-            {
-                var initResult = await ProcessService.RunAsync(
-                    "git", "init",
-                    workingDirectory: outputDir,
-                    streamOutput: false
-                );
-
-                if (initResult.ExitCode == 0)
-                {
-                    await ProcessService.RunAsync(
-                        "git", "add .",
-                        workingDirectory: outputDir,
-                        streamOutput: false
-                    );
-
-                    var commitResult = await ProcessService.RunAsync(
-                        "git", "commit -m \"Initial commit with Scaffolder\" --allow-empty",
-                        workingDirectory: outputDir,
-                        streamOutput: false
-                    );
-
-                    if (commitResult.ExitCode == 0)
-                        ConsoleService.Success("Depot Git initialise avec le premier commit.");
-                    else
-                        ConsoleService.Warning("Git commit a echoue. Verifie ta config Git (user.name, user.email).");
-                }
-                else
-                {
-                    ConsoleService.Warning("Git n'est pas installe ou a echoue.");
-                }
-            }).GetAwaiter().GetResult();
     }
 
     private static string Escape(string text)

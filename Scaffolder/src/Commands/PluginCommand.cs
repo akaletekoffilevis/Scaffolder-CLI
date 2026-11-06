@@ -1,13 +1,11 @@
 using System.CommandLine;
+using System.Text.Json;
 using Scaffolder.Services;
 
 namespace Scaffolder.Commands;
 
 public class PluginCommand : Command
 {
-    private static readonly string PluginsDir = Path.Combine(
-        Environment.GetFolderPath(Environment.SpecialFolder.UserProfile),
-        ".scaffolder", "plugins");
 
     public PluginCommand() : base("plugin", "Gère les plugins Scaffolder")
     {
@@ -61,7 +59,7 @@ public class PluginCommand : Command
 
     private static int HandleList()
     {
-        if (!Directory.Exists(PluginsDir))
+        if (!Directory.Exists(Paths.PluginsDir))
         {
             ConsoleService.Info("Aucun plugin installé.");
             ConsoleService.Info("Pour ajouter un plugin :");
@@ -71,7 +69,7 @@ public class PluginCommand : Command
             return 0;
         }
 
-        var pluginDirs = Directory.GetDirectories(PluginsDir);
+        var pluginDirs = Directory.GetDirectories(Paths.PluginsDir);
         if (pluginDirs.Length == 0)
         {
             ConsoleService.Info("Aucun plugin installé.");
@@ -90,14 +88,13 @@ public class PluginCommand : Command
             {
                 try
                 {
-                    foreach (var line in File.ReadAllLines(metaFile))
-                    {
-                        var t = line.Trim();
-                        if (t.StartsWith("\"description\":"))
-                            desc = t.Split(':', 2)[1].Trim(' ', '"', ',');
-                        if (t.StartsWith("\"version\":"))
-                            version = t.Split(':', 2)[1].Trim(' ', '"', ',');
-                    }
+                    var json = File.ReadAllText(metaFile);
+                    using var doc = System.Text.Json.JsonDocument.Parse(json);
+                    var root = doc.RootElement;
+                    if (root.TryGetProperty("description", out var descEl))
+                        desc = descEl.GetString() ?? desc;
+                    if (root.TryGetProperty("version", out var verEl))
+                        version = verEl.GetString() ?? version;
                 }
                 catch { }
             }
@@ -123,7 +120,7 @@ public class PluginCommand : Command
         if (string.IsNullOrWhiteSpace(pluginName))
             pluginName = "plugin-" + DateTime.UtcNow.Ticks;
 
-        var targetDir = Path.Combine(PluginsDir, pluginName);
+        var targetDir = Path.Combine(Paths.PluginsDir, pluginName);
 
         if (Directory.Exists(targetDir))
         {
@@ -198,14 +195,14 @@ public class PluginCommand : Command
             return 1;
         }
 
-        var targetDir = Path.Combine(PluginsDir, name);
+        var targetDir = Path.Combine(Paths.PluginsDir, name);
 
         if (!Directory.Exists(targetDir))
         {
             ConsoleService.Error($"Plugin '{name}' non trouvé.");
             ConsoleService.Info("Plugins installés :");
-            if (Directory.Exists(PluginsDir))
-                foreach (var d in Directory.GetDirectories(PluginsDir))
+            if (Directory.Exists(Paths.PluginsDir))
+                foreach (var d in Directory.GetDirectories(Paths.PluginsDir))
                     ConsoleService.Info($"  {Path.GetFileName(d)}");
             return 1;
         }
@@ -223,7 +220,7 @@ public class PluginCommand : Command
             return 1;
         }
 
-        var targetDir = Path.Combine(PluginsDir, name);
+        var targetDir = Path.Combine(Paths.PluginsDir, name);
         if (!Directory.Exists(targetDir))
         {
             ConsoleService.Error($"Plugin '{name}' non trouvé.");
@@ -264,7 +261,7 @@ public class PluginCommand : Command
             return 1;
         }
 
-        var targetDir = Path.Combine(PluginsDir, name);
+        var targetDir = Path.Combine(Paths.PluginsDir, name);
         if (Directory.Exists(targetDir))
         {
             ConsoleService.Error($"Un plugin '{name}' existe déjà.");

@@ -169,7 +169,7 @@ public class TemplateCommand : Command
 
         if (remote)
         {
-            var registryUrl = ConfigService.Get("registry.url");
+            var registryUrl = ConfigService.Get(ConfigService.Keys.RegistryUrl);
             if (string.IsNullOrWhiteSpace(registryUrl))
             {
                 ConsoleService.Warning("Aucun registry distant configuré.");
@@ -244,7 +244,7 @@ public class TemplateCommand : Command
             return 1;
         }
 
-        ConfigService.Set($"lock.{template}", version);
+        ConfigService.Set(ConfigService.Keys.LockKey(template), version);
         ConsoleService.Success($"Template '{template}' verrouille a la version {version}.");
         return 0;
     }
@@ -257,7 +257,7 @@ public class TemplateCommand : Command
             return 1;
         }
 
-        ConfigService.Set($"lock.{template}", "");
+        ConfigService.Set(ConfigService.Keys.LockKey(template), "");
         ConsoleService.Success($"Template '{template}' deverouille.");
         return 0;
     }

@@ -5,7 +5,10 @@ namespace Scaffolder.Services;
 
 public static class AIService
 {
-    private static readonly HttpClient Client = new();
+    private static readonly HttpClient Client = new()
+    {
+        Timeout = TimeSpan.FromSeconds(30)
+    };
 
     public static bool HasApiKey =>
         !string.IsNullOrWhiteSpace(ConfigService.Get(ConfigService.Keys.ApiKey));
@@ -24,7 +27,7 @@ public static class AIService
             var baseUrl = provider switch
             {
                 "claude" => "https://api.anthropic.com/v1/messages",
-                "gemini" => "https://generativelanguage.googleapis.com/v1beta/models/" + model + ":generateContent?key=" + key,
+                "gemini" => $"https://generativelanguage.googleapis.com/v1beta/models/{model}:generateContent?key={key}",
                 "grok" => "https://api.x.ai/v1/chat/completions",
                 _ => "https://api.openai.com/v1/chat/completions"
             };
@@ -62,11 +65,12 @@ public static class AIService
 
             if (provider == "gemini")
             {
-                var geminiPayload = new StringContent(
-                    "{\"contents\":[{\"parts\":[{\"text\":\"" + prompt + "\"}]}],\"generationConfig\":{\"maxOutputTokens\":" + maxTokens + ",\"temperature\":0.3}}",
-                    System.Text.Encoding.UTF8,
-                    "application/json");
-                var response = await Client.PostAsync(baseUrl, geminiPayload);
+                var geminiBody = new GeminiRequest(
+                    [new GeminiContent([new GeminiPart(prompt)])],
+                    new GeminiGenerationConfig(maxTokens, 0.3));
+                var msg = new HttpRequestMessage(HttpMethod.Post, baseUrl);
+                msg.Content = JsonContent.Create(geminiBody, JsonContext.Default.GeminiRequest);
+                var response = await Client.SendAsync(msg);
                 response.EnsureSuccessStatusCode();
                 var json = await response.Content.ReadFromJsonAsync(JsonContext.Default.JsonElement);
                 return json.GetProperty("candidates")[0].GetProperty("content").GetProperty("parts")[0].GetProperty("text").GetString();

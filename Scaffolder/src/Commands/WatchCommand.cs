@@ -90,8 +90,9 @@ public class WatchCommand : Command
                             ConsoleService.Info($"  Fichiers modifies : {string.Join(", ", modFiles.Select(f => Path.GetFileName(f.Key)))}");
 
                         ConsoleService.Info("  Regeneration...");
-                        var result = ProcessService.RunAsync("dotnet",
-                            $"run --project src/Scaffolder.csproj -- new --template={template} --name={Path.GetFileName(cwd)} --no-git",
+                        var scaffoldBin = ProcessService.GetScaffoldBinaryPath();
+                        var result = ProcessService.RunAsync(scaffoldBin,
+                            $"new --template={template} --name={Path.GetFileName(cwd)} --no-git",
                             Directory.GetCurrentDirectory()).Result;
 
                         if (result.ExitCode == 0)

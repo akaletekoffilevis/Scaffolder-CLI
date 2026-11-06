@@ -52,7 +52,11 @@ public class GitHubCommand : Command
 
         if (result.ExitCode == 0)
         {
-            ConsoleService.Success($"Depot cree : https://github.com/akaletekoffilevis/{dirName}");
+            var user = GetGitHubUsername();
+            var url = !string.IsNullOrEmpty(user)
+                ? $"https://github.com/{user}/{dirName}"
+                : $"https://github.com/<ton-username>/{dirName}";
+            ConsoleService.Success($"Depot cree : {url}");
             return 0;
         }
 
@@ -81,6 +85,19 @@ public class GitHubCommand : Command
         File.WriteAllText(Path.Combine(dir, "ci.yml"), workflow.TrimStart('\n'));
         ConsoleService.Success($"Workflow GitHub Actions genere : .github/workflows/ci.yml");
         return 0;
+    }
+
+    private static string GetGitHubUsername()
+    {
+        try
+        {
+            var result = ProcessService.RunAsync("gh", "api user --jq .login", streamOutput: false)
+                .GetAwaiter().GetResult();
+            if (result.ExitCode == 0 && !string.IsNullOrWhiteSpace(result.Output))
+                return result.Output.Trim();
+        }
+        catch { }
+        return "";
     }
 
     private static string DetectLanguage(string dir)

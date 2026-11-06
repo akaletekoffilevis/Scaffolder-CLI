@@ -88,7 +88,7 @@ public static class KnowledgeBase
         ("sonar", "SonarQube",
          "Plateforme d'analyse statique de code qui detecte les bugs, les failles de securite, la dette technique et les mauvaises pratiques."),
         ("sonarcloud", "SonarCloud",
-         "Version SaaS de SonarQube, integree aux workflows CI/CD. Analyse le code sur GitHub/GitLab.)"),
+          "Version SaaS de SonarQube, integree aux workflows CI/CD. Analyse le code sur GitHub/GitLab."),
         ("log", "Logging",
          "Journalisation des evenements d'une application. Niveaux : Debug, Info, Warning, Error, Fatal. Outils : Serilog (C#), Winston (JS), Log4j (Java)."),
         ("serilog", "Serilog",
@@ -216,6 +216,7 @@ public static class KnowledgeBase
 
     public static (string? Title, string? Content) Explain(string concept)
     {
+        concept = concept ?? throw new ArgumentNullException(nameof(concept));
         var lower = concept.ToLowerInvariant();
         var match = Explanations.FirstOrDefault(e =>
             e.Concept == lower ||
@@ -229,6 +230,7 @@ public static class KnowledgeBase
 
     public static (string? Title, string? Fix) Fix(string error)
     {
+        error = error ?? throw new ArgumentNullException(nameof(error));
         var lower = error.ToLowerInvariant();
         var bestScore = 0;
         (string? Title, string? Fix) best = (null, null);

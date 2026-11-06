@@ -76,24 +76,26 @@ public class StackCommand : Command
 
         var baseDir = output?.FullName ?? Directory.GetCurrentDirectory();
         var success = true;
+        var scaffoldBin = ProcessService.GetScaffoldBinaryPath();
+        var safeName = name!;
 
         // Generate frontend
         if (!string.IsNullOrWhiteSpace(frontend) && frontend != "none")
         {
-            var frontendDir = Path.Combine(baseDir, name, "frontend");
+            var frontendDir = Path.Combine(baseDir, safeName, "frontend");
             var frontendTemplate = frontend switch
             {
-                "react" => "npm react",
-                "vue" => "npm vue",
-                "svelte" => "npm svelte",
-                "next" => "npm next",
-                "nuxt" => "npm nuxt",
-                _ => "npm vite"
+                "react" => "react",
+                "vue" => "vue",
+                "svelte" => "svelte",
+                "next" => "next",
+                "nuxt" => "nuxt",
+                _ => "vite"
             };
 
             ConsoleService.Info($"Génération du frontend ({frontend})...");
-            var result = await ProcessService.RunAsync("dotnet",
-                $"run --project src/Scaffolder.csproj -- new --template={frontendTemplate.Split(' ')[1]} --name={name}-frontend --output={frontendDir} --no-git --silent",
+            var result = await ProcessService.RunAsync(scaffoldBin,
+                $"new --template={frontendTemplate} --name={safeName}-frontend --output={frontendDir} --no-git --silent",
                 Directory.GetCurrentDirectory());
 
             if (result.ExitCode == 0)
@@ -108,20 +110,20 @@ public class StackCommand : Command
         // Generate backend
         if (!string.IsNullOrWhiteSpace(backend) && backend != "none")
         {
-            var backendDir = Path.Combine(baseDir, name, "backend");
+            var backendDir = Path.Combine(baseDir, safeName, "backend");
             var backendTemplate = backend switch
             {
-                "webapi" => "dotnet webapi",
+                "webapi" => "webapi",
                 "fastapi" => "python",
-                "express" => "npm vite",
-                "laravel" => "composer laravel",
+                "express" => "vite",
+                "laravel" => "laravel",
                 "rails" => "rails",
-                _ => "dotnet webapi"
+                _ => "webapi"
             };
 
             ConsoleService.Info($"Génération du backend ({backend})...");
-            var result = await ProcessService.RunAsync("dotnet",
-                $"run --project src/Scaffolder.csproj -- new --template={backendTemplate.Split(' ')[^1]} --name={name}-backend --output={backendDir} --no-git --silent",
+            var result = await ProcessService.RunAsync(scaffoldBin,
+                $"new --template={backendTemplate} --name={safeName}-backend --output={backendDir} --no-git --silent",
                 Directory.GetCurrentDirectory());
 
             if (result.ExitCode == 0)
@@ -137,7 +139,7 @@ public class StackCommand : Command
         if (!string.IsNullOrWhiteSpace(db) && db != "none")
         {
             ConsoleService.Info($"Configuration de la base ({db})...");
-            var dockerDir = Path.Combine(baseDir, name, "docker");
+            var dockerDir = Path.Combine(baseDir, safeName, "docker");
             Directory.CreateDirectory(dockerDir);
 
             var dbConfig = db switch
@@ -199,7 +201,7 @@ DB_PORT={(db == "postgres" ? "5432" : db == "mysql" ? "3306" : "27017")}
         }
 
         // Create root README
-        var rootDir = Path.Combine(baseDir, name);
+        var rootDir = Path.Combine(baseDir, safeName);
         Directory.CreateDirectory(rootDir);
         File.WriteAllText(Path.Combine(rootDir, "README.md"), $"""
 # {name}
@@ -225,7 +227,7 @@ docker compose -f docker/docker-compose.yml up -d
         else
             ConsoleService.Warning("Stack générée avec des erreurs (voir ci-dessus).");
 
-        ConsoleService.Info($"  cd {Path.Combine(baseDir, name)}");
+        ConsoleService.Info($"  cd {Path.Combine(baseDir, safeName)}");
         return success ? 0 : 1;
     }
 }

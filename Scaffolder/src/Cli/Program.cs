@@ -3,12 +3,16 @@ using System.Linq;
 using Scaffolder.Commands;
 using Scaffolder.Services;
 
+DatabaseService.Initialize();
+
 var rootCommand = new RootCommand("Scaffolder — CLI universel pour générer des projets")
 {
     new NewCommand(),
+    new AddCommand(),
     new VersionCommand(),
     new UpgradeCommand(),
     new ConfigCommand(),
+    new DataCommand(),
     new DoctorCommand(),
     new SuggestCommand(),
     new ExplainCommand(),
@@ -44,8 +48,12 @@ var rootCommand = new RootCommand("Scaffolder — CLI universel pour générer d
     new DeployCommand(),
     new StoreCommand(),
     new UpdateDepsCommand(),
-    new WorkspaceCommand()
+    new WorkspaceCommand(),
+    new CICommand()
 };
+
+rootCommand.Aliases.Add("scaff");
+rootCommand.Aliases.Add("s");
 
 var builtinVer = rootCommand.Options.OfType<VersionOption>().FirstOrDefault();
 if (builtinVer != null) rootCommand.Options.Remove(builtinVer);
