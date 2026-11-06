@@ -197,7 +197,7 @@ public class NewCommand : Command
 
         if (isInteractive)
         {
-            (name, template, language) = RunInteractiveWizard(auth, db, arch);
+            (name, template, language, auth, db, arch) = RunInteractiveWizard(auth, db, arch);
             if (string.IsNullOrEmpty(template))
                 return 0;
             outputDir ??= Path.Combine(Directory.GetCurrentDirectory(), name);
@@ -214,6 +214,11 @@ public class NewCommand : Command
             ConsoleService.Error($"Nom de projet invalide : '{name}'.");
             ConsoleService.Info("Utilise des lettres, chiffres, '-', '_' ou '.' (sans espace ni separateur de chemin).");
             return 2;
+        }
+
+        if (template == "stack")
+        {
+            return StackCommand.RunAsync(name, null, null, null, Directory.GetParent(outputDir)).GetAwaiter().GetResult();
         }
 
         if (!string.IsNullOrWhiteSpace(framework))
@@ -320,30 +325,22 @@ public class NewCommand : Command
         ).ToLowerInvariant();
     }
 
-    private (string name, string template, string? language) RunInteractiveWizard(
+    private (string name, string template, string? language, string? auth, string? db, string? arch) RunInteractiveWizard(
         string? defaultAuth = null, string? defaultDb = null, string? defaultArch = null)
     {
-        var totalSteps = 6;
         ConsoleService.MarkupLine("[bold yellow]\u26a1  Assistant de création de projet[/]");
         ConsoleService.MarkupLine("[gray]  Suis les étapes pour créer ton projet.[/]");
-        ConsoleService.KeyboardHint();
         ConsoleService.WriteLine();
 
-        ConsoleService.StepHeader(1, totalSteps, "Nom du projet");
+        ConsoleService.StepTitle("Nom du projet");
         var name = ConsoleService.Prompt(
             "  [white]\u2714[/] Nom du projet :",
             "mon-projet",
-            validate: v =>
-            {
-                if (string.IsNullOrWhiteSpace(v)) return false;
-                if (v.Contains(' ')) return false;
-                if (v.IndexOfAny(Path.GetInvalidFileNameChars()) >= 0) return false;
-                return true;
-            },
-            errorMsg: "Nom invalide. Utilise uniquement des lettres, chiffres et tirets."
+            validate: IsValidProjectName,
+            errorMsg: "Nom invalide. Utilise des lettres, chiffres, '-', '_' ou '.'."
         );
 
-        ConsoleService.StepHeader(2, totalSteps, "Type de projet");
+        ConsoleService.StepTitle("Type de projet");
         ConsoleService.KeyboardHint();
         var category = ConsoleService.Select(
             "  [white]\u2714[/] Choisis un type :",
@@ -356,77 +353,72 @@ public class NewCommand : Command
         switch (category)
         {
             case "Application Hello World":
-                template = "hello";
-                ConsoleService.StepHeader(3, totalSteps, "Langage");
+                ConsoleService.StepTitle("Langage");
                 ConsoleService.KeyboardHint();
+                template = "hello";
                 language = PickHelloLanguage();
                 break;
 
             case "Stack fullstack":
-                template = "stack";
-                ConsoleService.MarkupLine("[yellow]Lancement de l'assistant stack...[/]");
-                ConsoleService.MarkupLine("[cyan]Exécute plutôt : [white]scaffold stack --name {name}[/][/]");
-                ConsoleService.WriteLine();
-                return ("", "", "");
+                return (name, "stack", null, defaultAuth, defaultDb, defaultArch);
 
             default:
-                template = SelectFrameworkWithVariant();
+                (template, language) = SelectFrameworkWithVariant();
                 if (string.IsNullOrEmpty(template))
-                    return ("", "", null);
+                    return ("", "", null, null, null, null);
                 break;
         }
 
-        var authChoice = defaultAuth;
-        var dbChoice = defaultDb;
-        var archChoice = defaultArch;
+        string? auth = defaultAuth;
+        string? db = defaultDb;
+        string? arch = defaultArch;
 
-        if (template != "hello" && template != "stack")
+        // Auth, base de donnees et architecture ne concernent que les web apps .NET.
+        var needsConfig = template is "webapi" or "blazor";
+        if (needsConfig)
         {
-            ConsoleService.StepHeader(4, totalSteps, "Configuration");
+            ConsoleService.StepTitle("Configuration");
             ConsoleService.KeyboardHint();
-            authChoice = authChoice ?? ConsoleService.Select(
+            auth ??= ConsoleService.Select(
                 "  [white]\u2714[/] Authentification :",
                 ["none", "jwt", "identity"]
             );
-            dbChoice = dbChoice ?? ConsoleService.Select(
+            db ??= ConsoleService.Select(
                 "  [white]\u2714[/] Base de donnees :",
                 ["none", "sqlite", "sqlserver", "postgresql"]
             );
-            archChoice = archChoice ?? ConsoleService.Select(
+            arch ??= ConsoleService.Select(
                 "  [white]\u2714[/] Architecture :",
                 ["mvc", "clean", "minimal"]
             );
         }
 
-        ConsoleService.StepHeader(template == "hello" || template == "stack" ? 3 : 5, totalSteps, "Recapitulatif");
+        ConsoleService.StepTitle("Récapitulatif");
         ConsoleService.WriteLine();
         ConsoleService.SummaryLine("Projet", name);
         ConsoleService.SummaryLine("Template", template);
         if (language != null)
             ConsoleService.SummaryLine("Langage", language);
-        if (authChoice != null && authChoice != "none")
-            ConsoleService.SummaryLine("Auth", authChoice);
-        if (dbChoice != null && dbChoice != "none")
-            ConsoleService.SummaryLine("BDD", dbChoice);
-        if (archChoice != null && archChoice != "mvc")
-            ConsoleService.SummaryLine("Architecture", archChoice);
+        if (needsConfig)
+        {
+            ConsoleService.SummaryLine("Auth", auth ?? "none");
+            ConsoleService.SummaryLine("BDD", db ?? "none");
+            ConsoleService.SummaryLine("Architecture", arch ?? "mvc");
+        }
         ConsoleService.SummaryLine("Dossier", Path.Combine(Directory.GetCurrentDirectory(), name));
         ConsoleService.WriteLine();
 
-        var confirm = ConsoleService.Confirm(
-            "[green]  Générer le projet ?[/]", true);
-
-        if (!confirm)
+        if (!ConsoleService.Confirm("[green]  Générer le projet ?[/]", true))
         {
             ConsoleService.Warning("Opération annulée.");
-            return ("", "", null);
+            return ("", "", null, null, null, null);
         }
 
         ConsoleService.WriteLine();
-        return (name, template, language);
+        return (name, template, language, auth, db, arch);
     }
 
-    private string SelectFrameworkWithVariant()
+    private (string template, string? language) SelectFrameworkWithVariant()
     {
         ConsoleService.KeyboardHint();
         var adapterChoice = ConsoleService.Select(
@@ -447,31 +439,34 @@ public class NewCommand : Command
             ConsoleService.Warning($"L'outil requis pour '{adapter.Name}' n'est pas installe.");
             var fallback = ConsoleService.Confirm(
                 "[yellow]  Utiliser le template Hello World à la place ?[/]", true);
-            if (fallback)
+            if (!fallback)
             {
-                ConsoleService.StepHeader(3, 4, "Langage");
-                ConsoleService.KeyboardHint();
-                return PickHelloLanguage();
+                ConsoleService.Warning("Opération annulée.");
+                return ("", null);
             }
-            ConsoleService.Warning("Opération annulée.");
-            return "";
+
+            ConsoleService.StepTitle("Langage");
+            ConsoleService.KeyboardHint();
+            return ("hello", PickHelloLanguage());
         }
 
         if (adapter.SubTemplates.Length > 1)
         {
-            ConsoleService.StepHeader(3, 4, "Variante");
+            ConsoleService.StepTitle("Variante");
             ConsoleService.KeyboardHint();
-            return ConsoleService.Select(
+            var variant = ConsoleService.Select(
                 "  [white]\u2714[/] Choisis une variante :",
                 adapter.SubTemplates
             );
+            return (variant, null);
         }
 
-        return adapter.SubTemplates.FirstOrDefault() ?? adapter.Name;
+        return (adapter.SubTemplates.FirstOrDefault() ?? adapter.Name, null);
     }
 
     private int HandleComposite(bool silent, bool noGit, string name, string template, string outputDir, string? language)
     {
+        Directory.CreateDirectory(outputDir);
         var parts = template.Split('+', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries);
         ConsoleService.Info($"Composition de {parts.Length} templates : {string.Join(", ", parts)}");
         ConsoleService.WriteLine();
@@ -505,15 +500,24 @@ public class NewCommand : Command
         var success = true;
         string? usedTemplate = null;
 
-        ConsoleService.ShowSpinner(
-            "  Generation du projet...",
-            () =>
-            {
-                var result = GenerateProjectCore(name, template, outputDir, language);
-                success = result.ExitCode == 0;
-                usedTemplate = result.UsedTemplate;
-                return Task.CompletedTask;
-            }).GetAwaiter().GetResult();
+        // Les adapters streament la sortie de l'outil natif : pas de spinner par-dessus.
+        void Generate()
+        {
+            var result = GenerateProjectCore(name, template, outputDir, language);
+            success = result.ExitCode == 0;
+            usedTemplate = result.UsedTemplate;
+        }
+
+        if (template == "hello")
+        {
+            ConsoleService.ShowSpinner("  Generation du projet...", () => { Generate(); return Task.CompletedTask; })
+                .GetAwaiter().GetResult();
+        }
+        else
+        {
+            ConsoleService.Info($"  Generation du projet '{name}' ({template})...");
+            Generate();
+        }
 
         ConsoleService.WriteLine();
 

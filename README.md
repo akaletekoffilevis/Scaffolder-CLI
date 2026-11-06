@@ -17,8 +17,8 @@
 </p>
 
 <p align="center">
-  <img src="https://img.shields.io/badge/version-2.0.0-blue?style=flat-square" alt="Version">
-  <img src="https://img.shields.io/badge/.NET-9-512BD4?style=flat-square&logo=dotnet" alt=".NET 9">
+  <img src="https://img.shields.io/badge/version-2.2.0-blue?style=flat-square" alt="Version">
+  <img src="https://img.shields.io/badge/.NET-10-512BD4?style=flat-square&logo=dotnet" alt=".NET 10">
   <img src="https://img.shields.io/badge/AOT-ready-green?style=flat-square" alt="AOT">
   <img src="https://img.shields.io/badge/platform-linux%20%7C%20macOS%20%7C%20Windows-lightgrey?style=flat-square" alt="Platforms">
 </p>

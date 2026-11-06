@@ -201,7 +201,10 @@ public static class ConsoleService
         return AnsiConsole.Prompt(
             new SelectionPrompt<string>()
                 .Title(question)
-                .PageSize(15)
+                .PageSize(12)
+                .WrapAround()
+                .EnableSearch()
+                .SearchPlaceholderText("Tape pour filtrer...")
                 .HighlightStyle(new Style(foreground: Spectre.Console.Color.Cyan1, decoration: Decoration.Bold))
                 .AddChoices(options));
     }
@@ -223,9 +226,14 @@ public static class ConsoleService
         AnsiConsole.MarkupLine($"\n[bold cyan]{Escape($"{current}/{total}")}[/] [white]{Escape(title)}[/]");
     }
 
+    public static void StepTitle(string title)
+    {
+        AnsiConsole.MarkupLine($"\n[bold cyan]\u25c6[/] [white]{Escape(title)}[/]");
+    }
+
     public static void KeyboardHint()
     {
-        AnsiConsole.MarkupLine("[gray]  \u2328 Utilise les flèches (↑ ↓) et Entrée pour choisir. Tapez pour filtrer.[/]");
+        AnsiConsole.MarkupLine("[gray]  \u2328 Utilise les flèches (↑ ↓) et Entrée pour choisir. Tape pour filtrer la liste.[/]");
     }
 
     public static void SummaryLine(string label, string value)

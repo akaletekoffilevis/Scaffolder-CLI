@@ -14,7 +14,7 @@ public class StackCommand : Command
         };
         var backendOpt = new Option<string>("--backend")
         {
-            Description = "Backend (webapi, fastapi, express, laravel, rails)"
+            Description = "Backend (webapi, fastapi, laravel, rails)"
         };
         var dbOpt = new Option<string>("--db")
         {
@@ -31,13 +31,13 @@ public class StackCommand : Command
         Add(dbOpt);
         Add(dirOpt);
 
-        this.SetAction(async (ParseResult pr) => await HandleStackAsync(
+        this.SetAction(async (ParseResult pr) => await RunAsync(
             pr.GetValue(nameOpt), pr.GetValue(frontendOpt),
             pr.GetValue(backendOpt), pr.GetValue(dbOpt),
             pr.GetValue(dirOpt)));
     }
 
-    private static async Task<int> HandleStackAsync(string? name, string? frontend, string? backend, string? db, DirectoryInfo? output)
+    public static async Task<int> RunAsync(string? name, string? frontend, string? backend, string? db, DirectoryInfo? output)
     {
         // If any arg missing, show interactive wizard
         var needsWizard = string.IsNullOrWhiteSpace(name)
@@ -59,7 +59,7 @@ public class StackCommand : Command
             var frontends = new[] { "react", "vue", "svelte", "next", "nuxt", "none" };
             frontend ??= ConsoleService.Select("Frontend", frontends);
 
-            var backends = new[] { "webapi", "fastapi", "express", "laravel", "rails", "none" };
+            var backends = new[] { "webapi", "fastapi", "laravel", "rails", "none" };
             backend ??= ConsoleService.Select("Backend", backends);
 
             var dbs = new[] { "postgres", "mysql", "sqlite", "mongodb", "none" };
@@ -78,6 +78,7 @@ public class StackCommand : Command
         var success = true;
         var scaffoldBin = ProcessService.GetScaffoldBinaryPath();
         var safeName = name!;
+        Directory.CreateDirectory(Path.Combine(baseDir, safeName));
 
         // Generate frontend
         if (!string.IsNullOrWhiteSpace(frontend) && frontend != "none")
@@ -115,7 +116,6 @@ public class StackCommand : Command
             {
                 "webapi" => "webapi",
                 "fastapi" => "python",
-                "express" => "vite",
                 "laravel" => "laravel",
                 "rails" => "rails",
                 _ => "webapi"
