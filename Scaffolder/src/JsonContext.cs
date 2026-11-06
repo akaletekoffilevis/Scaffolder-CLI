@@ -1,10 +1,12 @@
 using System.Text.Json;
+using System.Text.Json.Nodes;
 using System.Text.Json.Serialization;
 using Scaffolder.Services;
 
 namespace Scaffolder;
 
 [JsonSerializable(typeof(JsonElement))]
+[JsonSerializable(typeof(JsonNode))]
 [JsonSerializable(typeof(Dictionary<string, object>))]
 [JsonSerializable(typeof(Dictionary<string, string>))]
 [JsonSerializable(typeof(Dictionary<string, Dictionary<string, string>>))]

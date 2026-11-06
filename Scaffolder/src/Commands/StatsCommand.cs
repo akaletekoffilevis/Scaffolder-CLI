@@ -1,5 +1,6 @@
 using System.CommandLine;
 using System.Globalization;
+using System.Text.Json.Nodes;
 using Scaffolder.Services;
 
 namespace Scaffolder.Commands;
@@ -43,19 +44,28 @@ public class StatsCommand : Command
 
         if (pr.GetValue(_jsonOpt))
         {
-            var payload = new
+            var historyItems = new List<JsonNode?>();
+            foreach (var h in history)
+                historyItems.Add(new JsonObject(h.Select(kv => KeyValuePair.Create(kv.Key, (JsonNode?)JsonValue.Create(kv.Value)))));
+
+            var payload = new JsonObject
             {
-                database = new { size, created, modified, sections = db.Count },
-                generations = history.Count,
-                byTemplate,
-                favorites = favorites.Count,
-                plugins = plugins.Count,
-                versions = versions.Count,
-                history
+                ["database"] = new JsonObject
+                {
+                    ["size"] = size,
+                    ["created"] = created,
+                    ["modified"] = modified,
+                    ["sections"] = db.Count
+                },
+                ["generations"] = history.Count,
+                ["byTemplate"] = new JsonObject(byTemplate.Select(kv => KeyValuePair.Create(kv.Key, (JsonNode?)JsonValue.Create(kv.Value)))),
+                ["favorites"] = favorites.Count,
+                ["plugins"] = plugins.Count,
+                ["versions"] = versions.Count,
+                ["history"] = new JsonArray(historyItems.ToArray())
             };
 
-            Console.WriteLine(System.Text.Json.JsonSerializer.Serialize(
-                payload, new System.Text.Json.JsonSerializerOptions { WriteIndented = true }));
+            Console.WriteLine(System.Text.Json.JsonSerializer.Serialize<JsonNode>(payload, JsonContext.Default.JsonNode));
             return 0;
         }
 

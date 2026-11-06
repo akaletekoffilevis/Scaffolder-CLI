@@ -1,5 +1,7 @@
 using System.CommandLine;
 using System.Text;
+using System.Text.Json;
+using System.Text.Json.Nodes;
 using Scaffolder.Adapters;
 using Scaffolder.Services;
 
@@ -127,35 +129,41 @@ public class DoctorCommand : Command
 
     private static int PrintJson(List<(string Name, bool Found, string Version, bool Required)> results)
     {
-        var payload = new
+        // JsonNode + contexte source-gen : compatible AOT (pas de types anonymes).
+        var tools = new List<JsonNode?>();
+        foreach (var r in results)
         {
-            version = UpdateService.CurrentVersion,
-            os = GetOS(),
-            arch = GetArch(),
-            shell = GetShell(),
-            tools = results.Select(r => new
+            tools.Add(new JsonObject
             {
-                name = r.Name,
-                found = r.Found,
-                version = r.Version,
-                required = r.Required
-            }),
-            database = new
+                ["name"] = r.Name,
+                ["found"] = r.Found,
+                ["version"] = r.Version,
+                ["required"] = r.Required
+            });
+        }
+
+        var payload = new JsonObject
+        {
+            ["version"] = UpdateService.CurrentVersion,
+            ["os"] = GetOS(),
+            ["arch"] = GetArch(),
+            ["shell"] = GetShell(),
+            ["tools"] = new JsonArray(tools.ToArray()),
+            ["database"] = new JsonObject
             {
-                path = Paths.DatabaseFile,
-                exists = File.Exists(Paths.DatabaseFile),
-                size = DatabaseService.GetStats().Size
+                ["path"] = Paths.DatabaseFile,
+                ["exists"] = File.Exists(Paths.DatabaseFile),
+                ["size"] = DatabaseService.GetStats().Size
             },
-            config = new
+            ["config"] = new JsonObject
             {
-                apiKey = AIService.HasApiKey,
-                provider = AIService.Provider,
-                model = AIService.Model
+                ["apiKey"] = AIService.HasApiKey,
+                ["provider"] = AIService.Provider,
+                ["model"] = AIService.Model
             }
         };
 
-        Console.WriteLine(System.Text.Json.JsonSerializer.Serialize(
-            payload, new System.Text.Json.JsonSerializerOptions { WriteIndented = true }));
+        Console.WriteLine(JsonSerializer.Serialize<JsonNode>(payload, JsonContext.Default.JsonNode));
         return 0;
     }
 

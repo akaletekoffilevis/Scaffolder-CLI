@@ -1,5 +1,6 @@
 using System.CommandLine;
 using System.Text.Json;
+using System.Text.Json.Nodes;
 using Scaffolder.Adapters;
 using Scaffolder.Services;
 
@@ -94,15 +95,20 @@ public class ListCommand : Command
 
     private static int PrintJson(List<(string Template, string Description, bool Available, string? Language)> entries)
     {
-        var payload = entries.Select(e => new
+        // JsonNode + contexte source-gen : compatible AOT (pas de types anonymes).
+        var items = new List<JsonNode?>();
+        foreach (var e in entries)
         {
-            template = e.Template,
-            language = e.Language,
-            description = e.Description,
-            available = e.Available
-        });
+            items.Add(new JsonObject
+            {
+                ["template"] = e.Template,
+                ["language"] = e.Language,
+                ["description"] = e.Description,
+                ["available"] = e.Available
+            });
+        }
 
-        Console.WriteLine(JsonSerializer.Serialize(payload, new JsonSerializerOptions { WriteIndented = true }));
+        Console.WriteLine(JsonSerializer.Serialize<JsonNode>(new JsonArray(items.ToArray()), JsonContext.Default.JsonNode));
         return 0;
     }
 }
