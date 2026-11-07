@@ -6,7 +6,7 @@
 
 <p align="center">
   <b>CLI universel pour générer des projets dans tous les langages</b><br>
-  40+ commandes · 12 MB AOT · Multi-plateforme · IA intégrée
+  48 commandes · 17 MB AOT · Multi-plateforme · IA intégrée
 </p>
 
 <p align="center">
@@ -21,47 +21,61 @@
   <img src="https://img.shields.io/badge/.NET-10-512BD4?style=flat-square&logo=dotnet" alt=".NET 10">
   <img src="https://img.shields.io/badge/AOT-ready-green?style=flat-square" alt="AOT">
   <img src="https://img.shields.io/badge/platform-linux%20%7C%20macOS%20%7C%20Windows-lightgrey?style=flat-square" alt="Platforms">
+  <img src="https://img.shields.io/badge/license-MIT-yellow?style=flat-square" alt="License">
 </p>
 
 ---
 
 ## Installation
 
-### Linux (glibc)
+### Installation automatique (recommandée)
 
+**Linux / macOS :**
 ```bash
-curl -L -o scaffold.tar.gz https://github.com/akaletekoffilevis/Scaffolder-CLI/releases/latest/download/scaffold-linux-x64.tar.gz
-tar -xzf scaffold.tar.gz
-sudo mv scaffold /usr/local/bin/
-scaffold --help
+curl -fsSL https://github.com/akaletekoffilevis/Scaffolder-CLI/releases/latest/download/install.sh | bash
 ```
 
-Autres variantes : `linux-musl-x64` (Alpine), `linux-arm64`.
-
-### macOS
-
-```bash
-curl -L -o scaffold.tar.gz https://github.com/akaletekoffilevis/Scaffolder-CLI/releases/latest/download/scaffold-osx-x64.tar.gz
-tar -xzf scaffold.tar.gz
-sudo mv scaffold /usr/local/bin/
-scaffold --help
-```
-
-Variante Apple Silicon : `osx-arm64`.
-
-### Windows (PowerShell)
-
+**Windows (PowerShell) :**
 ```powershell
-curl -L -o scaffold.tar.gz https://github.com/akaletekoffilevis/Scaffolder-CLI/releases/latest/download/scaffold-win-x64.tar.gz
-tar -xzf scaffold.tar.gz
-scaffold --help
+irm https://github.com/akaletekoffilevis/Scaffolder-CLI/releases/latest/download/install.bat -OutFile install.bat
+.\install.bat
 ```
 
-### Homebrew
+### Téléchargement direct
+
+Téléchargez le binaire correspondant à votre plateforme depuis la [page des releases](https://github.com/akaletekoffilevis/Scaffolder-CLI/releases/latest) :
+
+| Plateforme | Fichier |
+|------------|---------|
+| Linux x64 | `scaffold-linux-x64.tar.gz` |
+| Linux musl-x64 | `scaffold-linux-musl-x64.tar.gz` |
+| Linux ARM64 | `scaffold-linux-arm64.tar.gz` |
+| macOS Intel | `scaffold-osx-x64.tar.gz` |
+| macOS Apple Silicon | `scaffold-osx-arm64.tar.gz` |
+| Windows x64 | `scaffold-win-x64.tar.gz` |
+| Windows x86 | `scaffold-win-x86.tar.gz` |
+
+Puis :
+```bash
+tar -xzf scaffold-*.tar.gz
+sudo mv scaffold /usr/local/bin/   # ou ~/.local/bin/
+scaffold --version
+```
+
+### Compilation depuis les sources
 
 ```bash
-brew tap akaletekoffilevis/scaffolder
-brew install scaffold
+git clone https://github.com/akaletekoffilevis/Scaffolder-CLI.git
+cd Scaffolder-CLI/Scaffolder
+dotnet restore
+dotnet publish -c Release -r linux-x64 --self-contained
+./bin/Release/net10.0/linux-x64/publish/scaffold --version
+```
+
+### Mise à jour
+
+```bash
+scaffold upgrade
 ```
 
 ---
@@ -69,107 +83,61 @@ brew install scaffold
 ## Utilisation rapide
 
 ```bash
-# Mode interactif (menu graphique)
+# Assistant interactif (TUI)
 scaffold new
 
-# Générer un projet spécifique
-scaffold new --template=webapi --name=mon-api
-scaffold new --template=vite --name=frontend
-scaffold new hello --language=rust --name=hello-rust
+# Générer un projet
+scaffold new --template webapi --name mon-api --db postgresql --docker
 
-# Composition de templates (fullstack)
-scaffold new webapi+react --name=full-app
+# Stack fullstack
+scaffold stack --name mon-app --frontend react --backend webapi --db postgres
 
-# Déployer sur Vercel/Railway/Docker/GitHub Pages
-scaffold deploy
+# Ajouter un composant
+scaffold add controller Users
 
-# Mettre à jour l'outil
-scaffold update
+# Diagnostic
+scaffold doctor
 
-# Aide
-scaffold --help
+# Interface web locale
+scaffold ui
+
+# Assistant IA
+scaffold ai ask "Comment créer une API REST ?"
 ```
-
----
-
-## Commandes (40+)
-
-| Catégorie | Commandes |
-|-----------|-----------|
-| **Génération** | `new`, `stack`, `generate` |
-| **Conteneurisation** | `docker`, `docker-compose`, `kubernetes` |
-| **CI/CD** | `github`, `gitlab-ci` |
-| **Éditeur** | `vscode`, `vscode-extension`, `ui` |
-| **Déploiement** | `deploy` — Vercel, Railway, Docker, GitHub Pages |
-| **Infrastructure** | `terraform`, `cloud-init` |
-| **Base de données** | `migration` |
-| **Monorepo** | `workspace` — npm, dotnet, Cargo |
-| **Mise à jour** | `update-deps`, `update` |
-| **Utilitaires** | `batch`, `config`, `bug`, `template from-dir`, `plugin`, `store`, `search`, `ai` |
-
-Documentation complète : [https://scaffolder-cli.vercel.app](https://scaffolder-cli.vercel.app)
 
 ---
 
 ## Fonctionnalités
 
-- **40+ commandes** — Init, build, test, docker, github, lint, format, registry, migration, batch
-- **Multi-langage** — .NET, Node.js, Rust, Go, Python, Flutter, Laravel, Symfony, Rails, et 20+ autres
-- **Fullstack** — Génère projet complet frontend + backend + base de données en une commande
-- **IA intégrée** — Suggestions, explications et correction d'erreurs via OpenAI, Claude, Gemini ou Grok
-- **AOT natif** — Compilé en binaire natif, pas de runtime nécessaire, démarrage instantané
-- **Extensible** — Plugins, templates custom, registry communautaire, workspace VS Code
-- **Auto-update** — Mise à jour automatique avec backup et rollback
-- **Composition** — Assemblez plusieurs templates avec `+`
+- **48 commandes** couvrant tout le cycle de vie d'un projet
+- **15 écosystèmes** : .NET, Node.js, Rust, Go, Python, Flutter, PHP, Ruby, Java, etc.
+- **63 templates** Hello World + frameworks
+- **Interface terminal (TUI)** : thème sombre/clair, menu F1–F9, assistant IA intégré
+- **Interface web locale** : tableau de bord, génération, configuration, IA
+- **Assistant IA contextuel** : connaît votre projet et propose des commandes
+- **AOT** : binaire natif ~17 MB, pas de runtime requis
+- **Multi-plateforme** : Linux, macOS, Windows
+- **Sécurité** : configuration chiffrée (AES-GCM), vérification SHA-256 des mises à jour
+- **Mise à jour automatique** avec détection de plateforme
 
 ---
 
-## Développement
+## Documentation
 
-```bash
-git clone https://github.com/akaletekoffilevis/Scaffolder-CLI.git
-cd scaffolder/Scaffolder
-dotnet restore
-dotnet build
-dotnet run -- --help
-```
-
-### Publication AOT
-
-```bash
-dotnet publish -c Release -r linux-x64 --self-contained
-./bin/Release/net10.0/linux-x64/publish/scaffold --help
-```
-
-### Tests
-
-```bash
-dotnet test
-```
+Documentation complète : [https://scaffolder-cli.vercel.app](https://scaffolder-cli.vercel.app)
 
 ---
 
-## Stack technique
+## Contribuer
 
-- **Langage :** C# (.NET 10)
-- **Framework CLI :** `System.CommandLine`
-- **Compilation :** AOT (NativeAOT) — binaire unique sans runtime
-- **CI :** GitHub Actions — build automatique pour 7 plateformes sur tag git
+Les contributions sont les bienvenues ! Voir [CONTRIBUTING.md](CONTRIBUTING.md).
 
----
+## Licence
 
-## Signaler un bug
-
-```bash
-scaffold bug
-```
-
-Ou ouvrir une issue : [github.com/akaletekoffilevis/Scaffolder-CLI/issues](https://github.com/akaletekoffilevis/Scaffolder-CLI/issues/new?labels=bug&template=bug_report.md)
+Ce projet est sous licence [MIT](LICENSE).
 
 ---
 
 <p align="center">
-  <a href="https://scaffolder-cli.vercel.app">Documentation</a> &middot;
-  <a href="https://github.com/akaletekoffilevis/Scaffolder-CLI">GitHub</a><br>
   <sub>Construit avec .NET 10 et System.CommandLine</sub>
 </p>

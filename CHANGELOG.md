@@ -1,5 +1,21 @@
 # Changelog
 
+## [2.3.0] — 2026-11-07
+
+### Ajouts
+- Interface terminal (TUI) en plein écran : thème sombre/clair, menu F1–F9, assistant IA intégré, catalogue auto de toutes les commandes.
+- Assistant IA contextuel : connaît le projet courant, les outils et les templates ; propose une commande que tu confirmes.
+- Interface web locale réécrite : tableau de bord, nouveau projet, stack, ajout, templates, configuration, IA, statistiques.
+- Page de configuration enrichie dans le TUI (thème, IA, auteur, société, licence, framework, defaults).
+- Scripts d'installation automatique (`install.sh`, `install.bat`) publiés sur la release.
+- Sérialisation JSON sans réflexion (AOT) pour `list`, `stats` et `doctor --json`.
+
+### Corrections et durcissement
+- Sécurité renforcée : suppression de `/api/run`, validation des noms, liste blanche des commandes, anti-CSRF.
+- Les outils natifs créent eux-mêmes le dossier du projet.
+- Correction des infos d'installation (suppression des méthodes non supportées).
+- Mise à jour de la documentation et du site.
+
 ## [2.2.0] — 2026-11-06
 
 ### Migration
