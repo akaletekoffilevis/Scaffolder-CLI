@@ -226,10 +226,16 @@ public static class ScaffolderTui
         };
 
         if (Environment.GetEnvironmentVariable("SCAFF_NOKEYDOWN") is null)
-        win.KeyDown += (_, e) =>
+        app.Keyboard.KeyDown += (_, e) =>
         {
+            if (e == Key.Esc || (e.IsCtrl && e.NoCtrl == Key.Q))
+            {
+                e.Handled = true;
+                app.RequestStop();
+                return;
+            }
+
             var index = Array.FindIndex(PageDefs, p => p.Hotkey == e);
-            File.AppendAllText("/tmp/opencode/keys.log", $"key={e} index={index} handled={e.Handled}\n");
             if (index < 0) return;
             e.Handled = true;
             JumpTo(index);
