@@ -30,7 +30,7 @@
 ### Linux (glibc)
 
 ```bash
-curl -L -o scaffold.tar.gz https://github.com/akaletekoffilevis/Scaffolder-CLI/releases/download/v2.0.0/scaffold-linux-x64.tar.gz
+curl -L -o scaffold.tar.gz https://github.com/akaletekoffilevis/Scaffolder-CLI/releases/latest/download/scaffold-linux-x64.tar.gz
 tar -xzf scaffold.tar.gz
 sudo mv scaffold /usr/local/bin/
 scaffold --help
@@ -41,7 +41,7 @@ Autres variantes : `linux-musl-x64` (Alpine), `linux-arm64`.
 ### macOS
 
 ```bash
-curl -L -o scaffold.tar.gz https://github.com/akaletekoffilevis/Scaffolder-CLI/releases/download/v2.0.0/scaffold-osx-x64.tar.gz
+curl -L -o scaffold.tar.gz https://github.com/akaletekoffilevis/Scaffolder-CLI/releases/latest/download/scaffold-osx-x64.tar.gz
 tar -xzf scaffold.tar.gz
 sudo mv scaffold /usr/local/bin/
 scaffold --help
@@ -52,7 +52,7 @@ Variante Apple Silicon : `osx-arm64`.
 ### Windows (PowerShell)
 
 ```powershell
-curl -L -o scaffold.tar.gz https://github.com/akaletekoffilevis/Scaffolder-CLI/releases/download/v2.0.0/scaffold-win-x64.tar.gz
+curl -L -o scaffold.tar.gz https://github.com/akaletekoffilevis/Scaffolder-CLI/releases/latest/download/scaffold-win-x64.tar.gz
 tar -xzf scaffold.tar.gz
 scaffold --help
 ```
@@ -151,7 +151,7 @@ dotnet test
 
 ## Stack technique
 
-- **Langage :** C# (.NET 9)
+- **Langage :** C# (.NET 10)
 - **Framework CLI :** `System.CommandLine`
 - **Compilation :** AOT (NativeAOT) — binaire unique sans runtime
 - **CI :** GitHub Actions — build automatique pour 7 plateformes sur tag git
@@ -171,5 +171,5 @@ Ou ouvrir une issue : [github.com/akaletekoffilevis/Scaffolder-CLI/issues](https
 <p align="center">
   <a href="https://scaffolder-cli.vercel.app">Documentation</a> &middot;
   <a href="https://github.com/akaletekoffilevis/Scaffolder-CLI">GitHub</a><br>
-  <sub>Construit avec .NET 9 et System.CommandLine</sub>
+  <sub>Construit avec .NET 10 et System.CommandLine</sub>
 </p>
