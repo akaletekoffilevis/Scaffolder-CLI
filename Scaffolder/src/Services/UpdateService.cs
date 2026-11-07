@@ -39,11 +39,11 @@ public static class UpdateService
                     return plus > 0 ? v[..plus] : v;
                 }
 
-                return Assembly.GetExecutingAssembly().GetName().Version?.ToString() ?? "2.2.0";
+                return Assembly.GetExecutingAssembly().GetName().Version?.ToString() ?? "2.3.0";
             }
             catch
             {
-                return "2.2.0";
+                return "2.3.0";
             }
         }
     }
