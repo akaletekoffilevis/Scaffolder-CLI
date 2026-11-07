@@ -1,5 +1,6 @@
 using System.CommandLine;
 using System.Linq;
+using Scaffolder.Cli;
 using Scaffolder.Commands;
 using Scaffolder.Services;
 
@@ -16,55 +17,7 @@ catch (Exception ex)
     ConsoleService.Warning($"Impossible initialiser la base locale : {ex.Message}");
 }
 
-var rootCommand = new RootCommand("Scaffolder — CLI universel pour générer des projets")
-{
-    new NewCommand(),
-    new AddCommand(),
-    new VersionCommand(),
-    new UpgradeCommand(),
-    new ConfigCommand(),
-    new DataCommand(),
-    new DoctorCommand(),
-    new SuggestCommand(),
-    new ExplainCommand(),
-    new FixCommand(),
-    new CompletionCommand(),
-    new LicenseCommand(),
-    new EnvCommand(),
-    new DockerCommand(),
-    new GitHubCommand(),
-    new InitCommand(),
-    new RunCommand(),
-    new BuildCommand(),
-    new TestCommand(),
-    new CleanCommand(),
-    new InfoCommand(),
-    new LintCommand(),
-    new FormatCommand(),
-    new RegistryCommand(),
-    new MigrateCommand(),
-    new TemplateCommand(),
-    new SearchCommand(),
-    new CompareCommand(),
-    new ProjectCommand(),
-    new BatchCommand(),
-    new WatchCommand(),
-    new PluginCommand(),
-    new AuditCommand(),
-    new StackCommand(),
-    new GenerateCommand(),
-    new VSCodeCommand(),
-    new UICommand(),
-    new BugCommand(),
-    new DeployCommand(),
-    new StoreCommand(),
-    new UpdateDepsCommand(),
-    new WorkspaceCommand(),
-    new CICommand(),
-    new ListCommand(),
-    new StatsCommand(),
-    new AiCommand()
-};
+var rootCommand = RootFactory.Create();
 
 rootCommand.Aliases.Add("scaff");
 rootCommand.Aliases.Add("s");
@@ -81,6 +34,12 @@ rootCommand.SetAction((ParseResult pr) =>
     if (pr.GetValue(versionOpt))
     {
         Console.WriteLine($"Scaffolder v{UpdateService.CurrentVersion}");
+        return 0;
+    }
+
+    if (!Console.IsInputRedirected && !Console.IsOutputRedirected)
+    {
+        Scaffolder.Tui.ScaffolderTui.Run();
         return 0;
     }
 

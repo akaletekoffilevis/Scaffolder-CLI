@@ -23,7 +23,7 @@ public class AiCommand : Command
         };
         askCmd.Add(promptArg);
         askCmd.Add(maxTokensOpt);
-        askCmd.SetAction(pr => HandleAsk(pr.GetValue(promptArg), pr.GetValue(maxTokensOpt)));
+        askCmd.SetAction(pr => HandleAsk(pr.GetValue(promptArg) ?? "", pr.GetValue(maxTokensOpt)));
 
         var suggestCmd = new Command("suggest", "Suggere un template a partir de mots-cles");
         var keywordsArg = new Argument<string[]>("keywords")
@@ -104,24 +104,19 @@ public class AiCommand : Command
             return 2;
         }
 
-        if (!AIService.HasApiKey)
-        {
-            ConsoleService.Warning("Aucune cle API configuree.");
-            ConsoleService.Info("Configure-la avec : scaffold config set apiKey <cle>");
-            ConsoleService.Info("Sans cle, utilise `scaffold explain` ou `scaffold fix` (base locale).");
-            return 1;
-        }
-
-        var answer = AIService.AskAsync(prompt, Math.Clamp(maxTokens, 1, 8192)).GetAwaiter().GetResult();
-
-        if (string.IsNullOrWhiteSpace(answer))
-        {
-            ConsoleService.Error("Aucune reponse de l'assistant.");
-            return 1;
-        }
+        // Assistant conscient du contexte (projet, outils, templates) : il peut proposer une commande.
+        var reply = AssistantService.AskAsync(prompt, [], Directory.GetCurrentDirectory())
+            .GetAwaiter().GetResult();
 
         Console.WriteLine();
-        Console.WriteLine(answer.Trim());
+        Console.WriteLine(reply.Text);
+        if (reply.Command is not null)
+        {
+            Console.WriteLine();
+            Console.WriteLine($"  Commande proposée : {reply.Command}");
+            Console.WriteLine();
+            ConsoleService.Info("Lance-la toi-même, ou utilise l'interface : scaffold tui");
+        }
         Console.WriteLine();
         return 0;
     }

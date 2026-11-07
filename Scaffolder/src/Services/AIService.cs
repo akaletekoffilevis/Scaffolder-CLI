@@ -1,3 +1,4 @@
+using System.Text;
 using System.Net;
 using System.Net.Http.Json;
 using System.Text.Json;
@@ -29,7 +30,7 @@ public static class AIService
     public static string DefaultModel(string provider) => provider switch
     {
         "claude" => "claude-3-5-haiku-latest",
-        "gemini" => "gemini-2.0-flash",
+        "gemini" => "gemini-3.5-flash",
         "grok" => "grok-2-latest",
         _ => "gpt-4o-mini"
     };
@@ -152,11 +153,25 @@ public static class AIService
         if (response == null) return null;
 
         using var json = JsonDocument.Parse(await response.Content.ReadAsStringAsync());
-        return json.RootElement.TryGetProperty("candidates", out var candidates) &&
-               candidates.ValueKind == JsonValueKind.Array &&
-               candidates.GetArrayLength() > 0
-            ? candidates[0].GetProperty("content").GetProperty("parts")[0].GetProperty("text").GetString()
-            : null;
+        if (!json.RootElement.TryGetProperty("candidates", out var candidates) ||
+            candidates.ValueKind != JsonValueKind.Array || candidates.GetArrayLength() == 0)
+            return null;
+
+        // Les modeles "thinking" peuvent renvoyer un candidat sans texte si le budget est court.
+        if (!candidates[0].TryGetProperty("content", out var content) ||
+            !content.TryGetProperty("parts", out var parts) || parts.ValueKind != JsonValueKind.Array)
+            return null;
+
+        var text = new StringBuilder();
+        foreach (var part in parts.EnumerateArray())
+        {
+            if (part.TryGetProperty("thought", out var thought) && thought.ValueKind == JsonValueKind.True)
+                continue;
+            if (part.TryGetProperty("text", out var t) && t.ValueKind == JsonValueKind.String)
+                text.Append(t.GetString());
+        }
+
+        return text.Length > 0 ? text.ToString() : null;
     }
 
     private static AiMessage[] BuildMessages(string prompt, string? system)
@@ -231,7 +246,7 @@ public static class AIService
         if (!HasApiKey)
             return (false, "Aucune cle API configuree. Lance `scaffold config set apiKey <cle>`.");
 
-        var answer = await AskAsync("Reponds uniquement par: OK", maxTokens: 10, temperature: 0);
+        var answer = await AskAsync("Reponds uniquement par: OK", maxTokens: 256, temperature: 0);
         return answer == null
             ? (false, $"Echec de la connexion au fournisseur '{Provider}'.")
             : (true, $"Connexion OK ({Provider} / {Model}) : {answer.Trim()}");

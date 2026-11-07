@@ -8,7 +8,7 @@ namespace Scaffolder.Commands;
 
 public class NewCommand : Command
 {
-    private static readonly IAdapter[] Adapters =
+    internal static readonly IAdapter[] Adapters =
     [
         new DotnetAdapter(),
         new NpmAdapter(),
@@ -27,7 +27,7 @@ public class NewCommand : Command
         new CrystalAdapter()
     ];
 
-    private static readonly string[] HelloLanguages =
+    internal static readonly string[] HelloLanguages =
     [
         "python", "javascript", "typescript", "c#", "rust", "go",
         "ruby", "php", "dart", "swift", "kotlin", "java", "zig",
@@ -197,10 +197,15 @@ public class NewCommand : Command
 
         if (isInteractive)
         {
-            (name, template, language, auth, db, arch) = RunInteractiveWizard(auth, db, arch);
-            if (string.IsNullOrEmpty(template))
-                return 0;
-            outputDir ??= Path.Combine(Directory.GetCurrentDirectory(), name);
+            if (Console.IsInputRedirected || Console.IsOutputRedirected)
+            {
+                ConsoleService.Error("Aucun template fourni et pas de terminal interactif.");
+                ConsoleService.Info("Exemple : scaffold new --template webapi --name mon-api --silent");
+                return 2;
+            }
+
+            Tui.ScaffolderTui.Run();
+            return 0;
         }
         else
         {
@@ -259,14 +264,6 @@ public class NewCommand : Command
             return HandleComposite(silent, noGit, name, template, outputDir, language);
         }
 
-        if (template == "hello")
-        {
-            if (string.IsNullOrWhiteSpace(language) && isInteractive)
-            {
-                language = PickHelloLanguage();
-            }
-        }
-
         return GenerateAndFinish(silent, noGit, name, template, outputDir, language, auth, db, arch, docker, ci);
     }
 
@@ -316,153 +313,6 @@ public class NewCommand : Command
         return 0;
     }
 
-
-    private static string PickHelloLanguage()
-    {
-        return ConsoleService.Select(
-            "  [white]\u2714[/] Choisis ton langage :",
-            HelloLanguages.Select(l => char.ToUpper(l[0]) + l[1..]).ToArray()
-        ).ToLowerInvariant();
-    }
-
-    private (string name, string template, string? language, string? auth, string? db, string? arch) RunInteractiveWizard(
-        string? defaultAuth = null, string? defaultDb = null, string? defaultArch = null)
-    {
-        ConsoleService.MarkupLine("[bold yellow]\u26a1  Assistant de création de projet[/]");
-        ConsoleService.MarkupLine("[gray]  Suis les étapes pour créer ton projet.[/]");
-        ConsoleService.WriteLine();
-
-        ConsoleService.StepTitle("Nom du projet");
-        var name = ConsoleService.Prompt(
-            "  [white]\u2714[/] Nom du projet :",
-            "mon-projet",
-            validate: IsValidProjectName,
-            errorMsg: "Nom invalide. Utilise des lettres, chiffres, '-', '_' ou '.'."
-        );
-
-        ConsoleService.StepTitle("Type de projet");
-        ConsoleService.KeyboardHint();
-        var category = ConsoleService.Select(
-            "  [white]\u2714[/] Choisis un type :",
-            ["Application Hello World", "Framework complet", "Stack fullstack"]
-        );
-
-        string template;
-        string? language = null;
-
-        switch (category)
-        {
-            case "Application Hello World":
-                ConsoleService.StepTitle("Langage");
-                ConsoleService.KeyboardHint();
-                template = "hello";
-                language = PickHelloLanguage();
-                break;
-
-            case "Stack fullstack":
-                return (name, "stack", null, defaultAuth, defaultDb, defaultArch);
-
-            default:
-                (template, language) = SelectFrameworkWithVariant();
-                if (string.IsNullOrEmpty(template))
-                    return ("", "", null, null, null, null);
-                break;
-        }
-
-        string? auth = defaultAuth;
-        string? db = defaultDb;
-        string? arch = defaultArch;
-
-        // Auth, base de donnees et architecture ne concernent que les web apps .NET.
-        var needsConfig = template is "webapi" or "blazor";
-        if (needsConfig)
-        {
-            ConsoleService.StepTitle("Configuration");
-            ConsoleService.KeyboardHint();
-            auth ??= ConsoleService.Select(
-                "  [white]\u2714[/] Authentification :",
-                ["none", "jwt", "identity"]
-            );
-            db ??= ConsoleService.Select(
-                "  [white]\u2714[/] Base de donnees :",
-                ["none", "sqlite", "sqlserver", "postgresql"]
-            );
-            arch ??= ConsoleService.Select(
-                "  [white]\u2714[/] Architecture :",
-                ["mvc", "clean", "minimal"]
-            );
-        }
-
-        ConsoleService.StepTitle("Récapitulatif");
-        ConsoleService.WriteLine();
-        ConsoleService.SummaryLine("Projet", name);
-        ConsoleService.SummaryLine("Template", template);
-        if (language != null)
-            ConsoleService.SummaryLine("Langage", language);
-        if (needsConfig)
-        {
-            ConsoleService.SummaryLine("Auth", auth ?? "none");
-            ConsoleService.SummaryLine("BDD", db ?? "none");
-            ConsoleService.SummaryLine("Architecture", arch ?? "mvc");
-        }
-        ConsoleService.SummaryLine("Dossier", Path.Combine(Directory.GetCurrentDirectory(), name));
-        ConsoleService.WriteLine();
-
-        if (!ConsoleService.Confirm("[green]  Générer le projet ?[/]", true))
-        {
-            ConsoleService.Warning("Opération annulée.");
-            return ("", "", null, null, null, null);
-        }
-
-        ConsoleService.WriteLine();
-        return (name, template, language, auth, db, arch);
-    }
-
-    private (string template, string? language) SelectFrameworkWithVariant()
-    {
-        ConsoleService.KeyboardHint();
-        var adapterChoice = ConsoleService.Select(
-            "  [white]\u2714[/] Choisis un ecosysteme :",
-            Adapters.Select(a =>
-            {
-                var avail = a.IsAvailable ? "" : " (\u274c outil non installe)";
-                var subs = a.SubTemplates.Length > 1 ? $" ({a.SubTemplates.Length} variantes)" : "";
-                return $"{a.Name} \u2014 {a.Description}{subs}{avail}";
-            }).ToArray()
-        );
-
-        var adapter = Adapters.First(a =>
-            adapterChoice.StartsWith(a.Name + " \u2014"));
-
-        if (!adapter.IsAvailable)
-        {
-            ConsoleService.Warning($"L'outil requis pour '{adapter.Name}' n'est pas installe.");
-            var fallback = ConsoleService.Confirm(
-                "[yellow]  Utiliser le template Hello World à la place ?[/]", true);
-            if (!fallback)
-            {
-                ConsoleService.Warning("Opération annulée.");
-                return ("", null);
-            }
-
-            ConsoleService.StepTitle("Langage");
-            ConsoleService.KeyboardHint();
-            return ("hello", PickHelloLanguage());
-        }
-
-        if (adapter.SubTemplates.Length > 1)
-        {
-            ConsoleService.StepTitle("Variante");
-            ConsoleService.KeyboardHint();
-            var variant = ConsoleService.Select(
-                "  [white]\u2714[/] Choisis une variante :",
-                adapter.SubTemplates
-            );
-            return (variant, null);
-        }
-
-        return (adapter.SubTemplates.FirstOrDefault() ?? adapter.Name, null);
-    }
 
     private int HandleComposite(bool silent, bool noGit, string name, string template, string outputDir, string? language)
     {

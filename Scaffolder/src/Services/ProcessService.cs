@@ -309,6 +309,23 @@ public static class ProcessService
         return "\"" + value.Replace("\\", "\\\\").Replace("\"", "\\\"") + "\"";
     }
 
+    /// <summary>
+    /// Commande pour relancer Scaffolder lui-meme : le binaire AOT directement,
+    /// ou `dotnet scaffold.dll` quand l'application tourne en mode JIT.
+    /// </summary>
+    public static (string FileName, List<string> Arguments) ScaffoldCommand(IEnumerable<string> arguments)
+    {
+        var entry = Environment.GetCommandLineArgs().FirstOrDefault();
+        if (!string.IsNullOrEmpty(entry) && entry.EndsWith(".dll", StringComparison.OrdinalIgnoreCase))
+        {
+            var list = new List<string> { Path.GetFullPath(entry) };
+            list.AddRange(arguments);
+            return (Environment.ProcessPath ?? "dotnet", list);
+        }
+
+        return (GetScaffoldBinaryPath(), arguments.ToList());
+    }
+
     public static string GetScaffoldBinaryPath()
     {
         var binaryName = OperatingSystem.IsWindows() ? "scaffold.exe" : "scaffold";
