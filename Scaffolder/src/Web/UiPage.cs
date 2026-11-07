@@ -5,13 +5,13 @@ public static class UiPage
 {
     public const string Html = """
 <!DOCTYPE html>
-<html lang="fr">
+<html lang="fr" data-theme="dark">
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>Scaffolder — interface web</title>
 <style>
-  :root {
+  :root, [data-theme="dark"] {
     --bg: #0d1117; --bg2: #161b22; --bg3: #21262d;
     --border: #30363d; --border2: #484f58;
     --text: #e6edf3; --text2: #8b949e; --text3: #6e7681;
@@ -29,6 +29,21 @@ public static class UiPage
     --transition-slow: .35s cubic-bezier(.4,0,.2,1);
     --font-mono: "SF Mono", Monaco, "Cascadia Code", "JetBrains Mono", monospace;
   }
+  [data-theme="light"] {
+    --bg: #ffffff; --bg2: #f6f8fa; --bg3: #eaeef2;
+    --border: #d0d7de; --border2: #afb8c1;
+    --text: #1f2328; --text2: #656d76; --text3: #8c959f;
+    --accent: #0969da; --accent2: #1a7f37; --accent3: #8250df;
+    --accent-glow: rgba(9,105,218,.1);
+    --accent-gradient: linear-gradient(135deg, #0969da, #8250df);
+    --ok: #1a7f37; --warn: #9a6700; --err: #cf222e;
+    --card-bg: #ffffff; --input-bg: #f6f8fa;
+    --code-bg: #f6f8fa; --sidebar-bg: #f6f8fa;
+    --shadow-sm: 0 1px 2px rgba(0,0,0,.06);
+    --shadow-md: 0 4px 12px rgba(0,0,0,.08);
+    --shadow-lg: 0 8px 30px rgba(0,0,0,.1);
+  }
+  html { transition: background .3s, color .3s; }
   * { box-sizing: border-box; margin: 0; padding: 0; }
   html { scroll-behavior: smooth; }
   ::selection { background: var(--accent); color: #fff; }
@@ -76,6 +91,15 @@ public static class UiPage
   nav button.active { color: var(--text); background: var(--bg3); font-weight: 600; }
   nav button .icon { width: 18px; text-align: center; font-size: 15px; opacity: .8; }
   nav .footer { margin-top: auto; padding: 12px 10px; border-top: 1px solid var(--border); font-size: 12px; color: var(--text3); }
+  .theme-toggle {
+    display: inline-flex; align-items: center; gap: 6px;
+    background: var(--bg3); border: 1px solid var(--border);
+    color: var(--text); padding: 6px 10px; border-radius: var(--radius-sm);
+    cursor: pointer; font: inherit; font-size: 12px;
+    transition: background var(--transition), border-color var(--transition);
+    width: 100%; justify-content: center;
+  }
+  .theme-toggle:hover { background: var(--bg2); border-color: var(--border2); }
 
   /* === Main === */
   main { flex: 1; padding: 32px 40px; max-width: 1080px; animation: fadeIn .35s ease; }
@@ -229,7 +253,10 @@ public static class UiPage
   <button data-page="config"><span class="icon">⚙️</span> Configuration</button>
   <button data-page="ai"><span class="icon">🤖</span> Assistant IA</button>
   <button data-page="stats"><span class="icon">📈</span> Statistiques</button>
-  <div class="footer">100 % local · données chiffrées</div>
+  <div class="footer">
+    <button class="theme-toggle" id="theme-toggle" title="Changer de thème">🌙 Mode sombre</button>
+    <div style="margin-top:8px">100 % local · données chiffrées</div>
+  </div>
 </nav>
 
 <main>
@@ -332,6 +359,26 @@ public static class UiPage
 <script>
 const $ = (id) => document.getElementById(id);
 const pages = document.querySelectorAll('nav button');
+
+// Theme toggle
+(function initTheme() {
+  const saved = localStorage.getItem('scaffolder-theme');
+  const prefersDark = window.matchMedia('(prefers-color-scheme: dark)').matches;
+  const theme = saved || (prefersDark ? 'dark' : 'light');
+  document.documentElement.setAttribute('data-theme', theme);
+  updateThemeButton(theme);
+})();
+function updateThemeButton(theme) {
+  const btn = $('theme-toggle');
+  if (btn) btn.textContent = (theme === 'dark' ? '☀️ Mode clair' : '🌙 Mode sombre');
+}
+$('theme-toggle')?.addEventListener('click', () => {
+  const current = document.documentElement.getAttribute('data-theme') || 'dark';
+  const next = current === 'dark' ? 'light' : 'dark';
+  document.documentElement.setAttribute('data-theme', next);
+  localStorage.setItem('scaffolder-theme', next);
+  updateThemeButton(next);
+});
 
 function show(page) {
   pages.forEach(b => b.classList.toggle('active', b.dataset.page === page));

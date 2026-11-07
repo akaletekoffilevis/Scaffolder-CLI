@@ -54,6 +54,14 @@ public static class ScaffolderTui
     private static readonly Color Select = new(31, 111, 235);
     private static readonly Color White = new(255, 255, 255);
 
+    // Palette claire.
+    private static readonly Color L_Bg = new(246, 248, 250);
+    private static readonly Color L_Panel = new(255, 255, 255);
+    private static readonly Color L_Fg = new(31, 35, 40);
+    private static readonly Color L_Muted = new(101, 109, 118);
+    private static readonly Color L_Accent = new(9, 105, 218);
+    private static readonly Color L_Select = new(9, 105, 218);
+
     private sealed class SharedState
     {
         public TemplateEntry? Preselected { get; set; }
@@ -67,10 +75,12 @@ public static class ScaffolderTui
         using var app = Application.Create();
         app.Init();
 
+        var dark = (ConfigService.Get(ConfigService.Keys.Theme) ?? "dark") != "light";
+
         var state = new SharedState();
         state.Entries.AddRange(BuildEntries());
 
-        using var win = BuildWindow(app, state);
+        using var win = BuildWindow(app, state, dark);
         app.Run(win);
     }
 
@@ -94,19 +104,35 @@ public static class ScaffolderTui
         return list;
     }
 
-    private static Scheme BuildScheme() => new(new Attr(Fg, Bg))
+    private static Scheme BuildScheme(bool dark)
     {
-        HotNormal = new Attr(Accent, Bg),
-        Focus = new Attr(White, Select),
-        HotFocus = new Attr(White, Select),
-        Highlight = new Attr(White, Select),
-        Disabled = new Attr(Muted, Bg),
-        Editable = new Attr(Fg, Panel)
-    };
+        if (dark)
+        {
+            return new Scheme(new Attr(Fg, Bg))
+            {
+                HotNormal = new Attr(Accent, Bg),
+                Focus = new Attr(White, Select),
+                HotFocus = new Attr(White, Select),
+                Highlight = new Attr(White, Select),
+                Disabled = new Attr(Muted, Bg),
+                Editable = new Attr(Fg, Panel)
+            };
+        }
 
-    private static Window BuildWindow(IApplication app, SharedState state)
+        return new Scheme(new Attr(L_Fg, L_Bg))
+        {
+            HotNormal = new Attr(L_Accent, L_Bg),
+            Focus = new Attr(Color.White, L_Select),
+            HotFocus = new Attr(Color.White, L_Select),
+            Highlight = new Attr(Color.White, L_Select),
+            Disabled = new Attr(L_Muted, L_Bg),
+            Editable = new Attr(L_Fg, L_Panel)
+        };
+    }
+
+    private static Window BuildWindow(IApplication app, SharedState state, bool dark)
     {
-        SchemeManager.AddScheme("Scaffolder", BuildScheme());
+        SchemeManager.AddScheme("Scaffolder", BuildScheme(dark));
 
         var win = new Window
         {
@@ -654,24 +680,95 @@ public static class ScaffolderTui
 
     private static View ConfigPage(IApplication app)
     {
-        var form = new FrameView { Title = "Assistant IA", X = 0, Y = 0, Width = Dim.Fill(), Height = Dim.Fill(3), SchemeName = "Scaffolder" };
+        var form = new FrameView { Title = "Configuration", X = 0, Y = 0, Width = Dim.Fill(), Height = Dim.Fill(3), SchemeName = "Scaffolder" };
 
+        // Lignes : label Y, champ Y
+        int y = 1;
+        // Thème
+        var themeL = Lbl("Thème", 1, y);
+        var themeSel = new OptionSelector { X = 22, Y = y, Width = Dim.Fill(2), Labels = new[] { "sombre", "clair" }, SchemeName = "Scaffolder" };
+        var currentTheme = ConfigService.Get(ConfigService.Keys.Theme) ?? "dark";
+        themeSel.Value = currentTheme == "light" ? 1 : 0;
+        y += 2;
+
+        // Clé API
         var keyState = AIService.HasApiKey ? "clé enregistrée ✔" : "aucune clé";
-        var keyL = Lbl($"Clé API ({keyState})", 1, 1);
-        var key = new TextField { Text = "", Secret = true, X = 22, Y = 1, Width = Dim.Fill(14), SchemeName = "Scaffolder" };
-        var saveKey = Btn("Enregistrer", Pos.AnchorEnd(14), 1);
+        var keyL = Lbl($"Clé API ({keyState})", 1, y);
+        var key = new TextField { Text = "", Secret = true, X = 22, Y = y, Width = Dim.Fill(14), SchemeName = "Scaffolder" };
+        var saveKey = Btn("Enregistrer", Pos.AnchorEnd(14), y);
+        y += 2;
 
-        var providerSel = new OptionSelector { X = 22, Y = 4, Width = Dim.Fill(2), Labels = ProviderChoices, SchemeName = "Scaffolder" };
+        // Fournisseur
+        var providerL = Lbl("Fournisseur", 1, y);
+        var providerSel = new OptionSelector { X = 22, Y = y, Width = Dim.Fill(2), Labels = ProviderChoices, SchemeName = "Scaffolder" };
         var current = Array.IndexOf(ProviderChoices, AIService.Provider);
         providerSel.Value = current >= 0 ? current : 2;
+        y += 2;
 
-        var model = Field(AIService.Model, 22, 7, 40);
-        var saveAi = Btn("Enregistrer l'IA", 1, 9);
+        // Modèle
+        var modelL = Lbl("Modèle", 1, y);
+        var model = Field(AIService.Model, 22, y, 40);
+        y += 2;
 
-        var status = Lbl("", 1, 11);
+        // Auteur / Société
+        var authorL = Lbl("Auteur", 1, y);
+        var author = Field(ConfigService.Get(ConfigService.Keys.Author) ?? "", 22, y, 40);
+        y += 2;
+        var companyL = Lbl("Société", 1, y);
+        var company = Field(ConfigService.Get(ConfigService.Keys.Company) ?? "", 22, y, 40);
+        y += 2;
+
+        // Licence / Framework
+        var licenseL = Lbl("Licence", 1, y);
+        var license = Field(ConfigService.Get(ConfigService.Keys.License) ?? "", 22, y, 40);
+        y += 2;
+        var fwL = Lbl("Framework", 1, y);
+        var fw = Field(ConfigService.Get(ConfigService.Keys.Framework) ?? "", 22, y, 40);
+        y += 2;
+
+        // Defaults auth/db/arch
+        var dAuthL = Lbl("Auth par défaut", 1, y);
+        var dAuth = new OptionSelector { X = 22, Y = y, Width = Dim.Fill(2), Labels = AuthChoices, SchemeName = "Scaffolder" };
+        var curAuth = Array.IndexOf(AuthChoices, ConfigService.Get(ConfigService.Keys.DefaultAuth) ?? "none");
+        dAuth.Value = curAuth >= 0 ? curAuth : 0;
+        y += 2;
+        var dDbL = Lbl("BDD par défaut", 1, y);
+        var dDb = new OptionSelector { X = 22, Y = y, Width = Dim.Fill(2), Labels = DbChoices, SchemeName = "Scaffolder" };
+        var curDb = Array.IndexOf(DbChoices, ConfigService.Get(ConfigService.Keys.DefaultDb) ?? "none");
+        dDb.Value = curDb >= 0 ? curDb : 0;
+        y += 2;
+        var dArchL = Lbl("Archi. par défaut", 1, y);
+        var dArch = new OptionSelector { X = 22, Y = y, Width = Dim.Fill(2), Labels = ArchChoices, SchemeName = "Scaffolder" };
+        var curArch = Array.IndexOf(ArchChoices, ConfigService.Get(ConfigService.Keys.DefaultArch) ?? "mvc");
+        dArch.Value = curArch >= 0 ? curArch : 0;
+        y += 2;
+
+        // Template favori
+        var favL = Lbl("Template favori", 1, y);
+        var fav = Field(ConfigService.Get(ConfigService.Keys.Fav) ?? "", 22, y, 40);
+        y += 2;
+
+        var status = Lbl("", 1, y);
         status.Width = Dim.Fill(1);
+        y += 2;
 
-        form.Add(keyL, key, saveKey, Lbl("Fournisseur", 1, 4), providerSel, Lbl("Modèle", 1, 7), model, saveAi, status);
+        var saveAll = Btn("✔ Enregistrer tout", 1, y);
+        var testAi = Btn("Tester l'IA", Pos.Right(saveAll) + 2, y);
+
+        form.Add(
+            themeL, themeSel,
+            keyL, key, saveKey,
+            providerL, providerSel,
+            modelL, model,
+            authorL, author,
+            companyL, company,
+            licenseL, license,
+            fwL, fw,
+            dAuthL, dAuth,
+            dDbL, dDb,
+            dArchL, dArch,
+            favL, fav,
+            status, saveAll, testAi);
 
         saveKey.Accepting += (_, e) =>
         {
@@ -684,19 +781,45 @@ public static class ScaffolderTui
             status.Text = "✔ Clé API enregistrée.";
         };
 
-        saveAi.Accepting += (_, e) =>
+        saveAll.Accepting += (_, e) =>
         {
             e.Handled = true;
-            var provider = ProviderChoices[Math.Max(0, providerSel.Value ?? 0)];
+            var theme = (themeSel.Value ?? 0) == 1 ? "light" : "dark";
+            ConfigService.Set(ConfigService.Keys.Theme, theme);
+            ConfigService.Set(ConfigService.Keys.Provider, ProviderChoices[Math.Max(0, providerSel.Value ?? 0)]);
             var m = model.Text?.ToString()?.Trim() ?? "";
-            ConfigService.Set(ConfigService.Keys.Provider, provider);
             if (m.Length > 0) ConfigService.Set(ConfigService.Keys.Model, m);
-            status.Text = $"✔ IA : {provider} · {(m.Length > 0 ? m : AIService.DefaultModel(provider))}";
+            SetIfNotEmpty(ConfigService.Keys.Author, author.Text?.ToString());
+            SetIfNotEmpty(ConfigService.Keys.Company, company.Text?.ToString());
+            SetIfNotEmpty(ConfigService.Keys.License, license.Text?.ToString());
+            SetIfNotEmpty(ConfigService.Keys.Framework, fw.Text?.ToString());
+            SetIfNotEmpty(ConfigService.Keys.Fav, fav.Text?.ToString());
+            ConfigService.Set(ConfigService.Keys.DefaultAuth, AuthChoices[Math.Max(0, dAuth.Value ?? 0)]);
+            ConfigService.Set(ConfigService.Keys.DefaultDb, DbChoices[Math.Max(0, dDb.Value ?? 0)]);
+            ConfigService.Set(ConfigService.Keys.DefaultArch, ArchChoices[Math.Max(0, dArch.Value ?? 0)]);
+            status.Text = $"✔ Enregistré. Thème : {theme} (relance le TUI pour l'appliquer).";
         };
 
-        var hint = Lbl("La clé est stockée localement (chiffrée). Elle n'est jamais affichée en entier.", 1, Pos.AnchorEnd(2));
+        testAi.Accepting += (_, e) =>
+        {
+            e.Handled = true;
+            status.Text = "Test en cours…";
+            _ = Task.Run(() =>
+            {
+                var (ok, msg) = AIService.TestAsync().GetAwaiter().GetResult();
+                app.Invoke(() => status.Text = (ok ? "✔ " : "✖ ") + msg);
+            });
+        };
+
+        var hint = Lbl("La clé API est stockée chiffrée. Le thème s'applique au prochain lancement.", 1, Pos.AnchorEnd(2));
         hint.Width = Dim.Fill(1);
         return Page(form, hint);
+    }
+
+    private static void SetIfNotEmpty(string key, string? value)
+    {
+        var v = value?.Trim();
+        if (!string.IsNullOrEmpty(v)) ConfigService.Set(key, v!);
     }
 
     // ───────────────────────────── Toutes les commandes ─────────────────────────────
