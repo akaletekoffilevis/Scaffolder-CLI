@@ -105,6 +105,20 @@ public static class ScaffolderTui
         return list;
     }
 
+    private static string MenuIcon(int index) => index switch
+    {
+        0 => "📖",
+        1 => "✨",
+        2 => "🧱",
+        3 => "➕",
+        4 => "📋",
+        5 => "🔍",
+        6 => "📁",
+        7 => "🤖",
+        8 => "⚙️",
+        _ => "⌨️"
+    };
+
     private static Scheme BuildScheme(bool dark)
     {
         if (dark)
@@ -142,7 +156,8 @@ public static class ScaffolderTui
             Width = Dim.Fill(),
             Height = Dim.Fill(),
             Title = $" ◆ Scaffolder v{UpdateService.CurrentVersion} ",
-            SchemeName = "Scaffolder"
+            SchemeName = "Scaffolder",
+            BorderStyle = Terminal.Gui.Drawing.LineStyle.Rounded
         };
 
         var header = new Label
@@ -156,21 +171,23 @@ public static class ScaffolderTui
 
         var sidebar = new FrameView
         {
-            Title = "Menu",
+            Title = "  Menu  ",
             X = 0,
             Y = 1,
             Width = 26,
             Height = Dim.Fill(1),
-            SchemeName = "Scaffolder"
+            SchemeName = "Scaffolder",
+            BorderStyle = Terminal.Gui.Drawing.LineStyle.Rounded
         };
         var menu = new ListView { X = 0, Y = 0, Width = Dim.Fill(), Height = Dim.Fill() };
         menu.SetSource(new ObservableCollection<string>(
-            PageDefs.Select((p, i) => $" F{i + 1}  {p.Title}")));
+            PageDefs.Select((p, i) => $" {MenuIcon(i)} F{i + 1}  {p.Title}")));
         sidebar.Add(menu);
 
         var content = new FrameView
         {
-            Title = PageDefs[0].Title,
+            Title = "  " + PageDefs[0].Title + "  ",
+            BorderStyle = Terminal.Gui.Drawing.LineStyle.Rounded,
             X = Pos.Right(sidebar),
             Y = 1,
             Width = Dim.Fill(),
@@ -201,7 +218,7 @@ public static class ScaffolderTui
             if (index == current) return;
             current = index;
             content.RemoveAll();
-            content.Title = $" {PageDefs[index].Title} ";
+            content.Title = $"  {PageDefs[index].Title}  ";
             content.Add(index switch
             {
                 0 => HelpPage(),
