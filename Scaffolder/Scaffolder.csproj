@@ -10,8 +10,8 @@
     <RootNamespace>Scaffolder</RootNamespace>
     <AssemblyName>scaffold</AssemblyName>
     <Description>CLI universel pour générer des projets dans tous les langages</Description>
-    <Version>2.4.0</Version>
-    <InformationalVersion>2.4.0</InformationalVersion>
+    <Version>2.5.0</Version>
+    <InformationalVersion>2.5.0</InformationalVersion>
     <StripSymbols>true</StripSymbols>
     <OptimizationPreference>Speed</OptimizationPreference>
     <IlcOptimizationPreference>Speed</IlcOptimizationPreference>

@@ -1,5 +1,13 @@
 # Changelog
 
+## [2.5.0] — 2026-11-09
+
+### Ajouts
+- TUI amélioré : bordures arrondies, icônes dans le menu, thème clair/sombre.
+- Documentation open source complète et site refondu.
+
+## [2.4.0] — 2026-11-09
+
 ## [2.4.0] — 2026-11-09
 
 ### Ajouts
