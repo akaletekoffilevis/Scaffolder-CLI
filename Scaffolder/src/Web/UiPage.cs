@@ -249,6 +249,7 @@ public static class UiPage
   <button data-page="stack"><span class="icon">🧱</span> Stack fullstack</button>
   <button data-page="add"><span class="icon">➕</span> Ajouter un composant</button>
   <button data-page="templates"><span class="icon">📋</span> Templates</button>
+  <button data-page="commands"><span class="icon">⌨️</span> Commandes</button>
   <div class="section-label">Outils</div>
   <button data-page="config"><span class="icon">⚙️</span> Configuration</button>
   <button data-page="ai"><span class="icon">🤖</span> Assistant IA</button>
@@ -332,6 +333,22 @@ public static class UiPage
     </div>
   </section>
 
+  <section id="commands">
+    <h2>Commandes</h2>
+    <p class="lead">Toutes les commandes du CLI, générées automatiquement. Choisis une commande, remplis les paramètres, exécute.</p>
+    <div class="card">
+      <input id="cmd-filter" placeholder="Filtrer (ex : docker, git, config…)" autocomplete="off" style="margin-bottom:14px">
+      <select id="cmd-select" style="margin-bottom:14px"></select>
+      <div id="cmd-params" class="grid" style="margin-bottom:14px"></div>
+      <div class="actions">
+        <button class="primary" id="cmd-run">Exécuter</button>
+        <button class="ghost" id="cmd-reset">Réinitialiser</button>
+        <span class="status" id="cmd-status"></span>
+      </div>
+      <pre id="cmd-out" hidden></pre>
+    </div>
+  </section>
+
   <section id="config">
     <h2>Configuration</h2>
     <p class="lead">Préférences enregistrées localement (~/.scaffolder). La clé API n'est jamais affichée en entier.</p>
@@ -385,6 +402,7 @@ function show(page) {
   document.querySelectorAll('section').forEach(s => s.classList.toggle('active', s.id === page));
   if (page === 'dashboard') loadDoctor();
   if (page === 'templates' && !templates.length) loadTemplates();
+  if (page === 'commands' && !commands.length) loadCommands();
   if (page === 'config') loadConfig();
   if (page === 'stats') loadStats();
   if (page === 'ai') loadVersion();
@@ -468,6 +486,98 @@ async function loadTemplates() {
   fillTemplateSelect();
   renderTemplates();
 }
+
+let commands = [];
+let selectedCommand = null;
+const cmdValues = {};
+
+async function loadCommands() {
+  const r = await api('/api/commands');
+  commands = Array.isArray(r.data) ? r.data : [];
+  fillCommandSelect();
+}
+
+function fillCommandSelect() {
+  const sel = $('cmd-select');
+  const q = ($('cmd-filter').value || '').trim().toLowerCase();
+  const visible = q ? commands.filter(c => (c.path + ' ' + c.description).toLowerCase().includes(q)) : commands;
+  sel.innerHTML = '';
+  for (const c of visible) {
+    const opt = document.createElement('option');
+    opt.value = c.path;
+    opt.textContent = c.path + ' — ' + (c.description || '');
+    sel.appendChild(opt);
+  }
+  if (visible.length) { sel.value = visible[0].path; renderCommandParams(visible[0].path); }
+}
+$('cmd-filter').addEventListener('input', fillCommandSelect);
+
+function renderCommandParams(path) {
+  const cmd = commands.find(c => c.path === path);
+  selectedCommand = cmd || null;
+  const box = $('cmd-params');
+  box.innerHTML = '';
+  if (!cmd) return;
+  for (const p of (cmd.parameters || [])) {
+    const wrap = document.createElement('div');
+    const lab = document.createElement('label'); lab.textContent = p.token + (p.required ? ' *' : '');
+    if (p.description) { const d = document.createElement('div'); d.className = 'muted'; d.textContent = p.description; d.style.fontSize = '11px'; d.style.marginBottom = '4px'; wrap.appendChild(d); }
+    if (p.isFlag) {
+      const cb = document.createElement('input'); cb.type = 'checkbox';
+      cb.id = 'cp-' + p.token;
+      cb.addEventListener('change', () => { cmdValues[p.token] = cb.checked; });
+      const l = document.createElement('label'); l.style.display = 'flex'; l.style.gap = '6px'; l.style.alignItems = 'center';
+      l.appendChild(cb); l.appendChild(document.createTextNode(p.token));
+      wrap.appendChild(l);
+    } else {
+      const inp = document.createElement('input');
+      inp.id = 'cp-' + p.token;
+      inp.placeholder = p.description || '';
+      inp.addEventListener('input', () => { cmdValues[p.token] = inp.value; });
+      wrap.appendChild(lab); wrap.appendChild(inp);
+    }
+    box.appendChild(wrap);
+  }
+}
+$('cmd-select').addEventListener('change', (e) => {
+  // reset values
+  for (const k in cmdValues) delete cmdValues[k];
+  renderCommandParams(e.target.value);
+});
+
+$('cmd-run').addEventListener('click', async () => {
+  if (!selectedCommand) return;
+  const btn = $('cmd-run'); btn.disabled = true;
+  $('cmd-status').textContent = 'Exécution…';
+  $('cmd-status').className = 'status';
+  $('cmd-out').hidden = true;
+  // collect values
+  const values = {};
+  for (const p of (selectedCommand.parameters || [])) {
+    const el = $('cp-' + p.token);
+    if (!el) continue;
+    if (p.isFlag) values[p.token] = el.checked;
+    else if (el.value && el.value.trim()) values[p.token] = el.value.trim();
+  }
+  const r = await api('/api/run-command', { path: selectedCommand.path, values });
+  btn.disabled = false;
+  if (r.data && r.data.output !== undefined) {
+    const ok = r.data.exitCode === 0;
+    $('cmd-status').textContent = ok ? 'Terminé' : 'Échec (code ' + r.data.exitCode + ')';
+    $('cmd-status').className = 'status ' + (ok ? 'ok' : 'err');
+    $('cmd-out').textContent = r.data.output || '(aucune sortie)';
+  } else if (r.data && r.data.error) {
+    $('cmd-status').textContent = r.data.error;
+    $('cmd-status').className = 'status err';
+  }
+  $('cmd-out').hidden = false;
+  toast(r.data && r.data.exitCode === 0 ? 'Commande terminée' : 'Échec', !!(r.data && r.data.exitCode === 0));
+});
+
+$('cmd-reset').addEventListener('click', () => {
+  for (const k in cmdValues) delete cmdValues[k];
+  document.querySelectorAll('#cmd-params input').forEach(i => { if (i.type === 'checkbox') i.checked = false; else i.value = ''; });
+});
 
 function templateValue(t) { return t.template + '::' + (t.language || ''); }
 
@@ -595,6 +705,7 @@ const _run = run;
 loadVersion();
 loadDoctor();
 loadTemplates();
+loadCommands();
 </script>
 <div class="toast" id="toast"></div>
 </body>

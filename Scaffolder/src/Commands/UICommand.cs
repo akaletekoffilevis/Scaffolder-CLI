@@ -139,12 +139,14 @@ public class UICommand : Command
                 (false, "/api/templates") => await RunRawJsonAsync(["list", "--json"]),
                 (false, "/api/doctor") => await RunRawJsonAsync(["doctor", "--json"]),
                 (false, "/api/stats") => await RunRawJsonAsync(["stats", "--json"]),
+                (false, "/api/commands") => (200, CommandsCatalogJson()),
                 (false, "/api/config") => (200, ConfigJson()),
                 (true, "/api/config") => await SetConfigAsync(await ReadBodyAsync(request)),
                 (true, "/api/new") => await NewProjectAsync(await ReadBodyAsync(request)),
                 (true, "/api/stack") => await StackAsync(await ReadBodyAsync(request)),
                 (true, "/api/add") => await AddComponentAsync(await ReadBodyAsync(request)),
                 (true, "/api/ai") => await AskAiAsync(await ReadBodyAsync(request)),
+                (true, "/api/run-command") => await RunCommandAsync(await ReadBodyAsync(request)),
                 _ => (404, "{\"error\":\"Introuvable\"}")
             };
             await WriteJsonAsync(response, status, json);
@@ -342,6 +344,65 @@ public class UICommand : Command
             return (400, Fail("Question vide ou trop longue"));
 
         return await RunScaffoldAsync(["ai", "ask", prompt]);
+    }
+
+    private static string CommandsCatalogJson()
+    {
+        var arr = new System.Text.Json.Nodes.JsonArray();
+        foreach (var e in CliCatalog.All)
+        {
+            var paramsArr = new System.Text.Json.Nodes.JsonArray();
+            foreach (var p in e.Parameters)
+            {
+                paramsArr.Add(new System.Text.Json.Nodes.JsonObject
+                {
+                    ["token"] = p.Token,
+                    ["description"] = p.Description,
+                    ["isArgument"] = p.IsArgument,
+                    ["isFlag"] = p.IsFlag,
+                    ["required"] = p.Required,
+                    ["multiple"] = p.Multiple
+                });
+            }
+            arr.Add(new System.Text.Json.Nodes.JsonObject
+            {
+                ["path"] = e.Path,
+                ["description"] = e.Description,
+                ["parameters"] = paramsArr
+            });
+        }
+        return arr.ToJsonString();
+    }
+
+    private static async Task<(int, string)> RunCommandAsync(string body)
+    {
+        using var doc = JsonDocument.Parse(body);
+        var root = doc.RootElement;
+        var path = Str(root, "path");
+        if (string.IsNullOrWhiteSpace(path)) return (400, Fail("Chemin de commande requis"));
+
+        var entry = CliCatalog.All.FirstOrDefault(e => e.Path == path);
+        if (entry is null) return (400, Fail("Commande inconnue"));
+
+        var args = entry.Path.Split(' ', StringSplitOptions.RemoveEmptyEntries).ToList();
+        if (root.TryGetProperty("values", out var vals) && vals.ValueKind == JsonValueKind.Object)
+        {
+            foreach (var p in entry.Parameters)
+            {
+                if (!vals.TryGetProperty(p.Token, out var v)) continue;
+                if (p.IsFlag)
+                {
+                    if (v.ValueKind == JsonValueKind.True) args.Add(p.Token);
+                    continue;
+                }
+                var value = v.ValueKind == JsonValueKind.String ? v.GetString()?.Trim() : null;
+                if (string.IsNullOrEmpty(value)) continue;
+                args.Add(p.Token);
+                args.Add(value);
+            }
+        }
+
+        return await RunScaffoldAsync(args);
     }
 
     private static async Task WriteJsonAsync(HttpListenerResponse response, int status, string json) =>

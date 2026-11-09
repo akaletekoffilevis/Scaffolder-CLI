@@ -468,10 +468,19 @@ public class NewCommand : Command
             if (!adapter.IsAvailable)
             {
                 ConsoleService.Warning($"L'outil requis pour '{adapter.Name}' n'est pas installe.");
-                ConsoleService.Info("Utilisation du template Hello World a la place.");
-                Directory.CreateDirectory(outputDir);
-                GenerateHelloWorld(name, outputDir, language);
-                return (42, "Fallback vers hello (outil requis non installe)", "hello");
+                if (ToolInstaller.CanInstall(adapter.Name) &&
+                    ConsoleService.Confirm($"Voulez-vous installer '{adapter.Name}' automatiquement ?", true))
+                {
+                    ToolInstaller.InstallAsync(adapter.Name).GetAwaiter().GetResult();
+                }
+
+                if (!adapter.IsAvailable)
+                {
+                    ConsoleService.Info("Utilisation du template Hello World a la place.");
+                    Directory.CreateDirectory(outputDir);
+                    GenerateHelloWorld(name, outputDir, language);
+                    return (42, "Fallback vers hello (outil requis non installe)", "hello");
+                }
             }
             var subTemplate = template == adapter.Name ? "" : template;
             var result = adapter.ScaffoldAsync(name, outputDir, subTemplate, language).GetAwaiter().GetResult();

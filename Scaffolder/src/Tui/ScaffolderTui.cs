@@ -38,6 +38,7 @@ public static class ScaffolderTui
         ("Ajouter", Key.F4),
         ("Templates", Key.F5),
         ("Diagnostic", Key.F6),
+        ("Projet", Key.F10),
         ("Assistant IA", Key.F7),
         ("Configuration", Key.F8),
         ("Toutes les commandes", Key.F9)
@@ -209,8 +210,9 @@ public static class ScaffolderTui
                 3 => AddPage(app),
                 4 => TemplatesPage(app, state, () => JumpTo(1)),
                 5 => DiagnosticPage(app),
-                6 => AssistantPage(app, state),
-                7 => ConfigPage(app),
+                6 => ProjectCommandsPage(app),
+                7 => AssistantPage(app, state),
+                8 => ConfigPage(app),
                 _ => CommandsPage(app)
             });
             menu.Value = index;
@@ -677,6 +679,43 @@ public static class ScaffolderTui
     }
 
     // ───────────────────────────── Configuration ─────────────────────────────
+
+    // ───────────────────────────── Commandes projet ─────────────────────────────
+
+    private static View ProjectCommandsPage(IApplication app)
+    {
+        var form = new FrameView { Title = "Commandes projet", X = 0, Y = 0, Width = Dim.Fill(), Height = Dim.Percent(45), SchemeName = "Scaffolder" };
+        var dir = Field(Directory.GetCurrentDirectory(), 16, 1);
+        var cmdSel = new OptionSelector
+        {
+            X = 16, Y = 3, Width = Dim.Fill(2),
+            Labels = new[] { "run", "build", "test", "clean", "info", "lint", "format" },
+            SchemeName = "Scaffolder"
+        };
+        var argsField = Field("", 16, 5, 40);
+        form.Add(Lbl("Dossier projet", 1, 1), dir, Lbl("Commande", 1, 3), cmdSel, Lbl("Arguments", 1, 5), argsField);
+
+        var logFrame = new FrameView { Title = "Sortie", X = 0, Y = Pos.Percent(45), Width = Dim.Fill(), Height = Dim.Fill(3), SchemeName = "Scaffolder" };
+        var log = LogView(out var lines, "Choisis une commande projet, puis « Exécuter ».");
+        logFrame.Add(log);
+
+        var cmds = new[] { "run", "build", "test", "clean", "info", "lint", "format" };
+        var run = Btn("▶ Exécuter", 1, Pos.AnchorEnd(1));
+        run.Accepting += (_, e) =>
+        {
+            e.Handled = true;
+            var d = dir.Text?.ToString()?.Trim() ?? "";
+            if (!Directory.Exists(d)) { AppendLines(app, lines, log, "✖ Dossier introuvable."); return; }
+            var cmd = cmds[Math.Max(0, cmdSel.Value ?? 0)];
+            var extra = argsField.Text?.ToString()?.Trim() ?? "";
+            var args = new List<string> { cmd };
+            if (extra.Length > 0) args.AddRange(extra.Split(' ', StringSplitOptions.RemoveEmptyEntries));
+            AppendLines(app, lines, log, $"$ scaffold {string.Join(' ', args)}  (dans {d})");
+            RunScaffold(app, lines, log, args, null, d);
+        };
+
+        return Page(form, logFrame, run);
+    }
 
     private static View ConfigPage(IApplication app)
     {
