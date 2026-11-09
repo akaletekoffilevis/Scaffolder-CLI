@@ -1,5 +1,23 @@
 # Changelog
 
+## [2.4.0] — 2026-11-09
+
+### Ajouts
+- Installation automatique des outils manquants (dotnet, node, cargo, go, python, flutter, composer, git, docker, gh) selon l'OS.
+- Page web « Commandes » générée automatiquement depuis le catalogue CLI.
+- Page « Projet » dans le TUI (run, build, test, clean, info, lint, format).
+- Thème clair/sombre dans le TUI et le web, page de configuration enrichie.
+- Plus de fournisseurs IA : Mistral AI, DeepSeek.
+- Support Kubernetes dans `scaffold deploy` (manifests Deployment/Service/Ingress).
+- Scripts d'installation automatique (install.sh, install.bat) publiés sur la release.
+- Documentation open source complète (README, LICENSE, CONTRIBUTING, SECURITY, templates GitHub).
+- RootFactory et CliCatalog partagés entre CLI, TUI et web.
+
+### Corrections et durcissement
+- Sécurité renforcée : liste blanche des commandes, validation des noms, anti-CSRF.
+- Correction des infos d'installation (suppression des méthodes non supportées).
+- Mise à jour de la documentation et du site.
+
 ## [2.3.0] — 2026-11-07
 
 ### Ajouts
