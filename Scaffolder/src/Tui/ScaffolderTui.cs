@@ -24,7 +24,7 @@ public static class ScaffolderTui
     private static readonly string[] AuthChoices = ["none", "jwt", "identity"];
     private static readonly string[] DbChoices = ["none", "sqlite", "sqlserver", "postgresql"];
     private static readonly string[] ArchChoices = ["mvc", "clean", "minimal"];
-    private static readonly string[] ProviderChoices = ["openai", "claude", "gemini", "grok"];
+    private static readonly string[] ProviderChoices = ["openai", "claude", "gemini", "grok", "mistral", "deepseek"];
     private static readonly string[] FrontendChoices = ["react", "vue", "svelte", "next", "nuxt", "none"];
     private static readonly string[] BackendChoices = ["webapi", "fastapi", "laravel", "rails", "none"];
     private static readonly string[] StackDbChoices = ["postgres", "mysql", "sqlite", "mongodb", "none"];

@@ -32,6 +32,8 @@ public static class AIService
         "claude" => "claude-3-5-haiku-latest",
         "gemini" => "gemini-3.5-flash",
         "grok" => "grok-2-latest",
+        "mistral" => "mistral-small-latest",
+        "deepseek" => "deepseek-chat",
         _ => "gpt-4o-mini"
     };
 
@@ -57,6 +59,10 @@ public static class AIService
                 "gemini" => await AskGeminiAsync(prompt, system, model, key, maxTokens, temperature),
                 "grok" => await AskOpenAiCompatibleAsync(
                     "https://api.x.ai/v1/chat/completions", prompt, system, model, key, maxTokens, temperature),
+                "mistral" => await AskOpenAiCompatibleAsync(
+                    "https://api.mistral.ai/v1/chat/completions", prompt, system, model, key, maxTokens, temperature),
+                "deepseek" => await AskOpenAiCompatibleAsync(
+                    "https://api.deepseek.com/v1/chat/completions", prompt, system, model, key, maxTokens, temperature),
                 _ => await AskOpenAiCompatibleAsync(
                     "https://api.openai.com/v1/chat/completions", prompt, system, model, key, maxTokens, temperature)
             };

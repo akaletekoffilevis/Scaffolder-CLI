@@ -635,7 +635,7 @@ async function loadConfig() {
     input.id = 'cfg-' + key;
     if (key === 'provider') {
       const s = document.createElement('select');
-      ['openai', 'claude', 'gemini', 'grok'].forEach(p => { const o = document.createElement('option'); o.value = p; o.textContent = p; s.appendChild(o); });
+      ['openai', 'claude', 'gemini', 'grok', 'mistral', 'deepseek'].forEach(p => { const o = document.createElement('option'); o.value = p; o.textContent = p; s.appendChild(o); });
       s.value = value || 'openai'; s.id = input.id; input = s;
     }
     const save = document.createElement('button');

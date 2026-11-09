@@ -28,7 +28,7 @@ public class UICommand : Command
         ConfigService.Keys.DefaultArch, ConfigService.Keys.Fav
     ];
 
-    private static readonly string[] Providers = ["openai", "claude", "gemini", "grok"];
+    private static readonly string[] Providers = ["openai", "claude", "gemini", "grok", "mistral", "deepseek"];
 
     private static int _port;
 

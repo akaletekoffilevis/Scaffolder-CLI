@@ -5,11 +5,11 @@ namespace Scaffolder.Commands;
 
 public class DeployCommand : Command
 {
-    public DeployCommand() : base("deploy", "Deploie le projet sur Vercel, Railway, ou Docker")
+    public DeployCommand() : base("deploy", "Deploie le projet (Vercel, Railway, Docker, GitHub Pages, Kubernetes)")
     {
         var targetOpt = new Option<string>("--target")
         {
-            Description = "Plateforme de deploiement (vercel, railway, docker)",
+            Description = "Plateforme (vercel, railway, docker, github-pages, kubernetes)",
             Required = false
         };
         var prodOpt = new Option<bool>("--prod")
@@ -32,7 +32,7 @@ public class DeployCommand : Command
             Console.WriteLine();
             target = ConsoleService.Select(
                 "  Choisis la plateforme de deploiement :",
-                ["vercel", "railway", "docker", "github-pages"]
+                ["vercel", "railway", "docker", "github-pages", "kubernetes"]
             );
         }
 
@@ -46,6 +46,7 @@ public class DeployCommand : Command
             "railway" => DeployRailway(cwd),
             "docker" => DeployDocker(cwd),
             "github-pages" => DeployGitHubPages(cwd),
+            "kubernetes" or "k8s" => DeployKubernetes(cwd),
             _ => 1
         };
     }
@@ -159,6 +160,87 @@ public class DeployCommand : Command
         }
 
         return run.ExitCode;
+    }
+
+    private static int DeployKubernetes(string cwd)
+    {
+        var projectName = new DirectoryInfo(cwd).Name.ToLowerInvariant().Replace(" ", "-");
+        var manifestsDir = Path.Combine(cwd, "k8s");
+        Directory.CreateDirectory(manifestsDir);
+
+        var deployment = $"""
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: {projectName}
+spec:
+  replicas: 2
+  selector:
+    matchLabels:
+      app: {projectName}
+  template:
+    metadata:
+      labels:
+        app: {projectName}
+    spec:
+      containers:
+        - name: {projectName}
+          image: {projectName}:latest
+          ports:
+            - containerPort: 8080
+          resources:
+            requests:
+              cpu: "100m"
+              memory: "128Mi"
+            limits:
+              cpu: "500m"
+              memory: "512Mi"
+""";
+
+        var service = $"""
+apiVersion: v1
+kind: Service
+metadata:
+  name: {projectName}
+spec:
+  selector:
+    app: {projectName}
+  ports:
+    - protocol: TCP
+      port: 80
+      targetPort: 8080
+  type: ClusterIP
+""";
+
+        var ingress = $"""
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: {projectName}
+  annotations:
+    nginx.ingress.kubernetes.io/rewrite-target: /
+spec:
+  rules:
+    - host: {projectName}.example.com
+      http:
+        paths:
+          - path: /
+            pathType: Prefix
+            backend:
+              service:
+                name: {projectName}
+                port:
+                  number: 80
+""";
+
+        File.WriteAllText(Path.Combine(manifestsDir, "deployment.yaml"), deployment);
+        File.WriteAllText(Path.Combine(manifestsDir, "service.yaml"), service);
+        File.WriteAllText(Path.Combine(manifestsDir, "ingress.yaml"), ingress);
+
+        ConsoleService.Success("Manifestes Kubernetes generes dans ./k8s/");
+        ConsoleService.Info("  kubectl apply -f k8s/");
+        ConsoleService.Info("  kubectl get pods -l app=" + projectName);
+        return 0;
     }
 
     private static int DeployGitHubPages(string cwd)
